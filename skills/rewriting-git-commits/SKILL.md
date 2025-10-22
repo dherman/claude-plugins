@@ -10,28 +10,87 @@ This skill is a lightweight frontend that invokes the git-rewriter agent to rewr
 
 ## Your Task
 
+This skill handles the result protocol from the git-rewriter agent and may require multiple invocations to handle user questions.
+
+### Step 1: Initial Invocation
+
 When this skill is invoked with a changeset description:
 
-1. **Invoke the git-rewriter agent**: Use the Task tool with `subagent_type: "git-rewriter"`
+1. Invoke the git-rewriter agent using Task tool:
+   - **subagent_type**: `"git-rewriter"`
+   - **description**: "Rewrite git commits"
+   - **prompt**: Include the changeset description
 
-2. **Pass the changeset description**: Include the changeset description in the prompt to guide the rewriting process
+### Step 2: Handle the Result
 
-3. **Let the agent handle everything**: The git-rewriter agent will:
-   - Validate the repository state
-   - Prepare materials (clean branch, master diff)
-   - Develop the story
-   - Create a commit plan
-   - Execute the plan
-   - Validate the results
+The git-rewriter agent returns one of three results:
+
+#### SUCCESS Result
+```
+RESULT: SUCCESS
+Original branch: {branch}
+Clean branch: {clean-branch}
+Base commit: {hash}
+Commits created: {count}
+```
+
+**Action**: Report success to the caller with the summary.
+
+#### ERROR Result
+```
+RESULT: ERROR
+Step: {step}
+Description: {description}
+Details: {details}
+```
+
+**Action**: Report the error to the caller.
+
+#### QUESTION Result
+```
+RESULT: QUESTION
+Context: {context}
+Resume State: {state}
+
+{Question with options}
+
+Option 1: {description}
+Option 2: {description}
+Option 3: {description}
+
+What should I do?
+```
+
+**Action**:
+1. Present the question and options to the user (via your caller)
+2. Wait for the user's answer
+3. Re-invoke git-rewriter agent with:
+   - Resume state from the QUESTION result
+   - User's answer
+4. Go back to Step 2 to handle the new result
+
+### Step 3: Return Result
+
+Once you receive SUCCESS or ERROR, pass it back to your caller.
 
 ## Example
 
-If invoked with "Add user authentication with OAuth support", you should:
-
+**Simple case:**
 ```
-Use Task tool with:
-- subagent_type: "git-rewriter"
-- prompt: "Rewrite the git commit sequence for this changeset: Add user authentication with OAuth support"
+Input: "Add user authentication with OAuth support"
+→ Invoke git-rewriter agent
+→ Agent returns SUCCESS
+→ Return success to caller
 ```
 
-The agent will handle all the orchestration and interact with the user as needed.
+**Case with question:**
+```
+Input: "Add authentication system"
+→ Invoke git-rewriter agent
+→ Agent returns QUESTION
+→ Present question to user (via caller)
+→ User answers "Option 1"
+→ Re-invoke git-rewriter with resume context
+→ Agent returns SUCCESS
+→ Return success to caller
+```

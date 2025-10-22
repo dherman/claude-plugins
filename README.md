@@ -94,18 +94,39 @@ A specialized agent that writes individual commits. It can:
    - Ensures contents are identical
    - Provides summary
 
-### Handling Large Commits
+### Result Protocol and Resumability
 
-If the commit-writer agent detects a commit is too large, it will:
+The plugin uses a consistent result protocol throughout the agent hierarchy:
 
-1. Stop and return a QUESTION result
-2. Propose 2-3 options for splitting the commit
-3. Wait for your guidance
-4. Resume with your chosen approach
+#### Three Result Types
 
-**Example Question:**
+Every agent (git-rewriter and commit-writer) returns one of:
+
+1. **SUCCESS** - Operation completed successfully
+2. **ERROR** - Unrecoverable error occurred
+3. **QUESTION** - Needs user guidance to proceed
+
+#### Question and Resume Flow
+
+When an agent needs user input:
+
+1. **Agent pauses** and returns a QUESTION result with:
+   - Context explaining the situation
+   - Resume state (all information needed to continue)
+   - 2-3 options for the user to choose from
+
+2. **User answers** by selecting an option
+
+3. **Agent resumes** with the resume state and user's answer, picking up exactly where it left off
+
+#### Example: Handling Large Commits
+
+If the commit-writer agent detects a commit is too large:
+
+**Question from commit-writer:**
 ```
-This commit includes 23 files across authentication, authorization, and session management.
+RESULT: QUESTION
+Context: Commit 3 "add authentication" is too large (23 files)
 
 Option 1: Three commits - (1) core auth logic, (2) authorization middleware, (3) session handling
 Option 2: Two commits - (1) backend implementation, (2) frontend integration
@@ -113,6 +134,14 @@ Option 3: Four commits - (1) database schema, (2) auth service, (3) middleware, 
 
 What approach should I take?
 ```
+
+**Propagated through git-rewriter:**
+
+The git-rewriter agent receives this QUESTION, wraps it with its own resume state, and passes it up to the command/skill, which presents it to you.
+
+**After your answer:**
+
+Your answer flows back down: command → git-rewriter agent → commit-writer agent, and execution resumes seamlessly.
 
 ## Installation
 
@@ -193,6 +222,35 @@ git-rewriter/
 * refactor: update imports and dependencies
 * test: add validation module tests
 ```
+
+## Architecture and Protocol
+
+### Agent Hierarchy
+
+The plugin uses a three-level architecture:
+
+```
+Command/Skill (frontends)
+    ↓
+git-rewriter agent (cyan) - orchestrator
+    ↓
+commit-writer agent (orange) - individual commits
+```
+
+### Result Protocol
+
+All agents follow a consistent protocol:
+
+- **Return one of three results**: SUCCESS, ERROR, or QUESTION
+- **Resumable execution**: When returning QUESTION, agents include complete resume state
+- **Bubble up questions**: Questions propagate up the hierarchy to reach the user
+- **Flow answers down**: User answers flow back down to resume execution
+
+This design optimizes context usage by:
+1. Keeping frontends (command/skill) lightweight
+2. Loading heavy orchestration logic only when needed (git-rewriter agent)
+3. Isolating commit creation logic (commit-writer agent)
+4. Supporting seamless pause/resume for user interaction
 
 ## Design Philosophy
 
