@@ -10,7 +10,7 @@ When working on features or bug fixes, commit history often becomes messy with "
 
 The plugin takes your current branch (with messy commits) and creates a new "clean" branch with the same final code changes, but organized into logical commits that:
 
-- Tell a clear story of how the feature was built
+- Tell a clear story explaining the feature in layers
 - Are appropriately sized for code review
 - Have descriptive commit messages
 - Follow a logical progression
