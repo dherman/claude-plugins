@@ -7,7 +7,7 @@
   "plugins": [
     {
       "name": "git-rewriter",
-      "source": "./git-rewriter",
+      "source": "./plugins/git-rewriter",
       "description": "Rewrite git commit sequences to create clean, readable branches",
       "version": "0.1.1",
       "author": {
