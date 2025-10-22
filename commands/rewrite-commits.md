@@ -73,10 +73,10 @@ What should I do?
 **Action**:
 1. Present the question and options clearly to the user
 2. Wait for the user's answer
-3. Re-invoke the git-rewriter agent with:
+3. Re-invoke the git-rewriter agent following the resumption template in [docs/result-protocol.md](../docs/result-protocol.md):
    - **subagent_type**: `"git-rewriter"`
    - **description**: "Resume git rewriter"
-   - **prompt**: Include the resume state from the QUESTION result and the user's answer
+   - **prompt**: Use the standard resumption format with the Resume State and User's Answer
 4. Go back to Step 2 to handle the new result
 
 ### Step 3: Completion

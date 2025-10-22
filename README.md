@@ -170,6 +170,8 @@ git-rewriter/
 ├── agents/
 │   ├── git-rewriter.md                # Main orchestrator agent (cyan)
 │   └── commit-writer.md               # Commit creation agent (orange)
+├── docs/
+│   └── result-protocol.md             # Shared protocol specification
 └── settings.json                       # Recommended permissions
 ```
 
@@ -239,12 +241,14 @@ commit-writer agent (orange) - individual commits
 
 ### Result Protocol
 
-All agents follow a consistent protocol:
+All agents follow a consistent protocol defined in [docs/result-protocol.md](docs/result-protocol.md):
 
 - **Return one of three results**: SUCCESS, ERROR, or QUESTION
 - **Resumable execution**: When returning QUESTION, agents include complete resume state
 - **Bubble up questions**: Questions propagate up the hierarchy to reach the user
 - **Flow answers down**: User answers flow back down to resume execution
+
+See the [Result Protocol documentation](docs/result-protocol.md) for detailed format specifications and examples.
 
 This design optimizes context usage by:
 1. Keeping frontends (command/skill) lightweight

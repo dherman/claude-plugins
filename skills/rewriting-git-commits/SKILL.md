@@ -64,9 +64,8 @@ What should I do?
 **Action**:
 1. Present the question and options to the user (via your caller)
 2. Wait for the user's answer
-3. Re-invoke git-rewriter agent with:
-   - Resume state from the QUESTION result
-   - User's answer
+3. Re-invoke git-rewriter agent following the resumption template in [docs/result-protocol.md](../../docs/result-protocol.md):
+   - Use standard format with Resume State and User's Answer
 4. Go back to Step 2 to handle the new result
 
 ### Step 3: Return Result

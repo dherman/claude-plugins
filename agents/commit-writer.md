@@ -12,15 +12,89 @@ You are a specialized agent responsible for creating a single commit in a git co
 
 ## Input Parameters
 
-You will receive the following information:
+You will receive one of two types of input:
 
-1. **Commit Description**: A description of what this commit should contain
-2. **Master Diff File**: Path to a file containing the full diff of all changes needed
-3. **Branch Name**: The clean branch where commits are being created
-4. **Resume Context** (optional): If resuming from a previous question, contains:
-   - Where you left off
-   - The answer to your previous question
-   - Any partial work completed
+### Initial Invocation
+
+Information about the commit to create:
+- **Commit Description**: What this commit should contain
+- **Master Diff File**: Path to file with all changes
+- **Branch Name**: The clean branch where commits are being created
+
+**Example prompt:**
+```
+Create a commit for: "add user authentication logic"
+Master diff: /tmp/git-rewriter-master-20251022-100000.diff
+Branch: feature/auth-20251022-100000-clean
+```
+
+### Resumption Invocation
+
+A resume prompt with state and user's answer (see "Resuming from QUESTION" section below)
+
+## Resuming from QUESTION
+
+If your input contains "Resume State" and "User's Answer", you are being resumed after asking a QUESTION.
+
+### How to Detect Resumption
+
+Look for this pattern in your input:
+```
+Resume the commit-writer process.
+
+Resume State:
+  - Master diff: {path}
+  - Branch: {branch}
+  - Commit description: {description}
+  - Analysis: {your previous analysis}
+
+User's Answer: {answer}
+
+Continue from where you left off.
+```
+
+### What to Do When Resuming
+
+1. **Parse the Resume State**: Extract:
+   - Master diff file path
+   - Branch name
+   - Original commit description
+   - Your previous analysis about why it was too large
+
+2. **Parse the User's Answer**: Understand which split option they chose (e.g., "Option 1", "Option 2")
+
+3. **Implement the Split**: Based on the user's choice:
+   - If "Option 1": Split according to your first proposed approach
+   - If "Option 2": Split according to your second proposed approach
+   - If "Option 3": Split according to your third proposed approach
+
+4. **Create Multiple Commits**: Instead of one commit, create the series of smaller commits as outlined in the chosen option
+
+5. **Return SUCCESS**: After creating all the split commits, return a SUCCESS result summarizing what you created
+
+### Example Resumption
+
+**You receive:**
+```
+Resume the commit-writer process.
+
+Resume State:
+  - Master diff: /tmp/git-rewriter-master-20251022-100000.diff
+  - Branch: feature/auth-20251022-100000-clean
+  - Commit description: add user authentication system
+  - Analysis: Found 23 files across auth, authorization, and session layers
+
+User's Answer: Option 1
+
+Continue from where you left off.
+```
+
+**You should:**
+1. Recall that "Option 1" was "Three commits by layer: (1) core auth logic, (2) authorization middleware, (3) session handling"
+2. Create commit 1: Core auth logic files
+3. Create commit 2: Authorization middleware files
+4. Create commit 3: Session handling files
+5. Return SUCCESS noting you created 3 commits
 
 ## Your Responsibilities
 
@@ -57,12 +131,19 @@ Where `<type>` is one of: feat, fix, refactor, docs, test, chore, perf, style
 
 ### 4. Return Results
 
-You must conclude with one of three result types:
+You must follow the standard result protocol defined in [docs/result-protocol.md](../docs/result-protocol.md).
 
-#### SUCCESS Result
+**Quick Summary:**
 
-If the commit was successfully created, output:
+Return one of three result types:
 
+- **SUCCESS**: Commit created successfully
+- **ERROR**: Failed to create commit
+- **QUESTION**: Commit too large, need guidance on how to split
+
+For detailed format requirements and examples, see the protocol documentation.
+
+**Your SUCCESS format:**
 ```
 RESULT: SUCCESS
 Commit: <commit hash>
@@ -70,24 +151,20 @@ Message: <commit message>
 Files changed: <count>
 ```
 
-#### ERROR Result
-
-If something went wrong, output:
-
+**Your ERROR format:**
 ```
 RESULT: ERROR
 Description: <clear description of what went wrong>
 Details: <any relevant error messages or context>
 ```
 
-#### QUESTION Result
-
-If the commit appears too large and needs guidance, output:
-
+**Your QUESTION format:**
 ```
 RESULT: QUESTION
 Context: <description of where you are in the process>
-Proposed Split: <your suggested way to split this into multiple commits>
+Resume State: <master diff path, branch, commit description, analysis>
+
+This commit is too large ({reason - e.g., 23 files across multiple layers}).
 
 Option 1: <description>
 Option 2: <description>
