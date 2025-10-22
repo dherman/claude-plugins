@@ -237,7 +237,7 @@ This is the main execution loop that creates each commit:
    a. **Mark todo as in_progress**
 
    b. **Invoke commit-writer agent**:
-      - Use the Task tool with subagent_type pointing to the commit-writer agent
+      - Use the Task tool with subagent_type: `"git-rewriter:commit-writer"`
       - Pass the commit description, master diff path, and branch name
       - If resuming from a question, include resume context
 

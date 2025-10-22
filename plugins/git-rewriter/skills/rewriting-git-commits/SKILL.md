@@ -17,7 +17,7 @@ This skill handles the result protocol from the git-rewriter agent and may requi
 When this skill is invoked with a changeset description:
 
 1. Invoke the git-rewriter agent using Task tool:
-   - **subagent_type**: `"git-rewriter"`
+   - **subagent_type**: `"git-rewriter:git-rewriter"`
    - **description**: "Rewrite git commits"
    - **prompt**: Include the changeset description
 
