@@ -1,5 +1,5 @@
 ---
-name: git-rewriter
+name: main
 description: Orchestrates the process of rewriting a git commit sequence from a draft changeset into a clean, well-organized series of commits that tell a clear story
 tools: Bash, Read, Write, Edit, Task, TodoWrite, Grep, Glob
 model: inherit
