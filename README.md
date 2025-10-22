@@ -21,7 +21,7 @@ Takes messy commit history (WIP commits, fixes, typos) and rewrites it into logi
 To add this marketplace to Claude Code:
 
 ```bash
-/plugin marketplace add https://github.com/dherman/git-rewriter
+/plugin marketplace add https://github.com/dherman/claude-plugins
 ```
 
 ### Installing Plugins

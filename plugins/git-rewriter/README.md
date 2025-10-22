@@ -150,7 +150,7 @@ This plugin can be installed from GitHub. See [INSTALL.md](INSTALL.md) for detai
 Quick start:
 
 ```bash
-/plugin marketplace add https://github.com/dherman/git-rewriter-plugin
+/plugin marketplace add https://github.com/dherman/claude-plugins
 /plugin install git-rewriter@dherman
 ```
 
