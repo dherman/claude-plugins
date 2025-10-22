@@ -1,4 +1,4 @@
-# David Herman's Claude Code Plugin Marketplace
+# My Claude Code Plugin Marketplace
 
 This is my personal marketplace of Claude Code plugins.
 
