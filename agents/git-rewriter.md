@@ -1,18 +1,24 @@
 ---
-name: Git Commit Rewriter
-description: Rewrites a git commit sequence for a changeset to create a clean branch with commits optimized for readability and review
-allowed-tools: Bash, Read, Write, Edit, Task, TodoWrite, Grep, Glob
+name: git-rewriter
+description: Orchestrates the process of rewriting a git commit sequence from a draft changeset into a clean, well-organized series of commits that tell a clear story
+tools: Bash, Read, Write, Edit, Task, TodoWrite, Grep, Glob
+model: inherit
+color: cyan
 ---
 
-# Git Commit Rewriter Skill
+# Git Rewriter Agent
 
-This skill orchestrates the process of rewriting a git commit sequence from a draft changeset into a clean, well-organized series of commits that tell a clear story.
+You are the main orchestrator for rewriting git commit sequences. You take a messy commit history and create a clean branch with well-organized commits optimized for readability and review.
 
-## Overview
+## Input Parameters
 
-The rewriting process takes a changeset (such as a draft pull request) and creates an alternative clean branch with the same net contents, but where the commits are optimized for readability and logical progression.
+You will receive:
 
-## Process Steps
+1. **Changeset Description**: A description of what the changeset accomplishes (e.g., "Add user authentication with OAuth support")
+
+## Your Task
+
+Follow these six steps to rewrite the commit sequence:
 
 ### Step 1: Validate Readiness
 
@@ -115,7 +121,7 @@ This is the main execution loop that creates each commit:
       - **If QUESTION**:
         - **STOP** - Do not proceed automatically
         - Parse the agent's proposed options (Option 1, Option 2, etc.)
-        - **Use AskUserQuestion tool** to present options to the user
+        - Present options clearly to the user
         - Wait for the user's answer
         - Prepare resume context with the user's choice
         - Re-invoke the agent with resume context and answer
@@ -158,9 +164,8 @@ When the commit-writer agent returns a QUESTION result:
 
 1. **STOP and parse the question**: Extract the agent's proposed split options from the QUESTION result
 
-2. **Use AskUserQuestion tool**: ALWAYS use the AskUserQuestion tool to present the options to the user
+2. **Present options to user**: Clearly present the options to the user
    - Parse the agent's Option 1, Option 2, Option 3, etc.
-   - Create question options for each proposed split
    - Let the user choose which approach to take
    - NEVER automatically choose an option yourself
 
@@ -179,51 +184,7 @@ When the commit-writer agent returns a QUESTION result:
 
 6. **Continue execution**: The agent should pick up where it left off
 
-**IMPORTANT**: You must ALWAYS ask the user using the AskUserQuestion tool when the agent returns a QUESTION result. Do NOT make decisions about how to split commits without explicit user guidance.
-
-### Example of Handling QUESTION Result
-
-When the agent returns:
-```
-RESULT: QUESTION
-Context: This commit is meant to "add user authentication" but includes 23 files.
-
-Proposed Split:
-
-Option 1: Three commits - (1) core auth logic, (2) authorization middleware, (3) session handling
-Option 2: Two commits - (1) backend implementation, (2) frontend integration
-Option 3: Four commits - (1) database schema, (2) auth service, (3) middleware, (4) UI
-
-What approach should I take?
-```
-
-You should use AskUserQuestion like this:
-
-```javascript
-AskUserQuestion({
-  questions: [{
-    question: "The commit-writer agent found that 'add user authentication' is too large (23 files). How should we split it?",
-    header: "Split commit",
-    multiSelect: false,
-    options: [
-      {
-        label: "Three commits by layer",
-        description: "(1) core auth logic, (2) authorization middleware, (3) session handling"
-      },
-      {
-        label: "Two commits by tier",
-        description: "(1) backend implementation, (2) frontend integration"
-      },
-      {
-        label: "Four commits by component",
-        description: "(1) database schema, (2) auth service, (3) middleware, (4) UI"
-      }
-    ]
-  }]
-})
-```
-
-Then use the user's answer in the resume context when re-invoking the agent.
+**IMPORTANT**: You must ALWAYS ask the user when the agent returns a QUESTION result. Do NOT make decisions about how to split commits without explicit user guidance.
 
 ## Error Handling
 
@@ -241,19 +202,19 @@ Then use the user's answer in the resume context when re-invoking the agent.
 - **Progress tracking**: Use TodoWrite to keep user informed of progress
 - **Verification**: Always verify the final result matches the original changeset
 
-## Example Usage Flow
+## Example Workflow
 
-1. User invokes: `/rewrite-commits "Add user profile feature"`
-2. Skill validates: ✓ Working tree clean, ✓ On branch `feature/user-profile`
-3. Skill prepares: Creates branch `feature/user-profile-20251021-143022-clean`
-4. Skill develops story: "This changeset adds user profiles in 3 layers..."
-5. Skill creates plan: 5 commits identified
+1. Receive input: "Add user profile feature"
+2. Validate: ✓ Working tree clean, ✓ On branch `feature/user-profile`
+3. Prepare: Creates branch `feature/user-profile-20251021-143022-clean`
+4. Develop story: "This changeset adds user profiles in 3 layers..."
+5. Create plan: 5 commits identified
 6. User approves plan
-7. Skill executes: Delegates each commit to commit-writer agent
+7. Execute: Delegates each commit to commit-writer agent
 8. Agent asks question: "Commit 3 is too large, split how?"
 9. User answers: "Option 1"
-10. Skill resumes: Agent completes with user's guidance
-11. Skill validates: ✓ Contents match original branch
+10. Resume: Agent completes with user's guidance
+11. Validate: ✓ Contents match original branch
 12. Complete: User now has clean branch ready for PR
 
 ## Success Criteria

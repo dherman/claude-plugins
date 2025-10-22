@@ -17,11 +17,11 @@ The plugin takes your current branch (with messy commits) and creates a new "cle
 
 ## Components
 
-The plugin consists of three main components:
+The plugin consists of four main components:
 
 ### 1. Slash Command: `/rewrite-commits`
 
-The entry point for users. Takes a description of what the changeset accomplishes.
+A lightweight entry point for users. Takes a description of what the changeset accomplishes and delegates to the git-rewriter agent.
 
 **Usage:**
 ```bash
@@ -30,9 +30,15 @@ The entry point for users. Takes a description of what the changeset accomplishe
 
 **Location:** `commands/rewrite-commits.md`
 
-### 2. Skill: `git-rewriter`
+### 2. Skill: Rewriting Git Commits
 
-The orchestrator that manages the overall rewriting process through six steps:
+A lightweight skill that can be invoked programmatically. Simply delegates to the git-rewriter agent.
+
+**Location:** `skills/rewriting-git-commits/SKILL.md`
+
+### 3. Agent: `git-rewriter`
+
+The main orchestrator that manages the overall rewriting process through six steps:
 
 1. **Validate Readiness** - Ensures git working tree is clean and ready
 2. **Prepare Materials** - Creates clean branch and master diff file
@@ -41,9 +47,9 @@ The orchestrator that manages the overall rewriting process through six steps:
 5. **Execute Plan** - Delegates to commit-writer agent for each commit
 6. **Validate Results** - Verifies clean branch matches original
 
-**Location:** `skills/git-rewriter/SKILL.md`
+**Location:** `agents/git-rewriter.md`
 
-### 3. Agent: `commit-writer`
+### 4. Agent: `commit-writer` (orange)
 
 A specialized agent that writes individual commits. It can:
 
@@ -60,28 +66,30 @@ A specialized agent that writes individual commits. It can:
 
 1. You invoke: `/rewrite-commits "Description of your changeset"`
 
-2. The skill validates your git state and prepares materials:
+2. The command delegates to the git-rewriter agent
+
+3. The git-rewriter agent validates your git state and prepares materials:
    - Creates a new branch: `{your-branch}-{timestamp}-clean`
    - Generates a master diff of all changes
 
-3. The skill analyzes your changes and develops a story:
+4. The git-rewriter agent analyzes your changes and develops a story:
    - Identifies key themes and layers
    - Determines logical ordering
    - Creates narrative structure
 
-4. The skill creates a commit plan:
+5. The git-rewriter agent creates a commit plan:
    - Breaks story into discrete commits
    - Estimates size and identifies files
    - Presents plan for your approval
 
-5. You review and approve the plan
+6. You review and approve the plan
 
-6. The skill executes the plan:
-   - Delegates each commit to the commit-writer agent
+7. The git-rewriter agent executes the plan:
+   - Delegates each commit to the commit-writer agent (orange)
    - Handles questions if commits need splitting
    - Tracks progress with todo list
 
-7. The skill validates results:
+8. The git-rewriter agent validates results:
    - Compares clean branch to original
    - Ensures contents are identical
    - Provides summary
@@ -124,15 +132,16 @@ The plugin contains:
 ```
 git-rewriter/
 ├── .claude-plugin/
-│   └── plugin.json              # Plugin manifest
+│   └── plugin.json                    # Plugin manifest
 ├── commands/
-│   └── rewrite-commits.md       # Slash command
+│   └── rewrite-commits.md             # Slash command (lightweight frontend)
 ├── skills/
-│   └── git-rewriter/
-│       └── SKILL.md              # Main orchestrator skill
+│   └── rewriting-git-commits/
+│       └── SKILL.md                    # Skill (lightweight frontend)
 ├── agents/
-│   └── commit-writer.md          # Commit creation agent
-└── settings.json                 # Recommended permissions
+│   ├── git-rewriter.md                # Main orchestrator agent (cyan)
+│   └── commit-writer.md               # Commit creation agent (orange)
+└── settings.json                       # Recommended permissions
 ```
 
 ## Usage Examples
