@@ -9,7 +9,7 @@ This plugin can be installed from GitHub so it's available across all your proje
 From any directory in Claude Code, run:
 
 ```bash
-/plugin marketplace add dherman/git-rewriter
+/plugin marketplace add https://github.com/dherman/git-rewriter-plugin
 ```
 
 This adds the GitHub repository as a plugin marketplace.

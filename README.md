@@ -113,7 +113,7 @@ This plugin can be installed from GitHub. See [INSTALL.md](INSTALL.md) for detai
 Quick start:
 
 ```bash
-/plugin marketplace add dherman/git-rewriter
+/plugin marketplace add https://github.com/dherman/git-rewriter-plugin
 /plugin install git-rewriter@dherman
 ```
 
