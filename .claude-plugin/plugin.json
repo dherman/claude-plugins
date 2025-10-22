@@ -1,0 +1,8 @@
+{
+  "name": "git-rewriter",
+  "version": "0.1.0",
+  "description": "Rewrite git commit sequences to create clean, readable branches optimized for code review",
+  "author": {
+    "name": "David Herman"
+  }
+}
