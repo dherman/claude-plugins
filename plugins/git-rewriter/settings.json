@@ -4,6 +4,8 @@
       "Read(*)",
       "Write(*)",
       "Edit(*)",
+      "Task(*)",
+      "TodoWrite(*)",
       "Bash(git status:*)",
       "Bash(git log:*)",
       "Bash(git diff:*)",
