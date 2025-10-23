@@ -6,10 +6,10 @@
   },
   "plugins": [
     {
-      "name": "git-rewriter",
-      "source": "./plugins/git-rewriter",
+      "name": "historian",
+      "source": "./plugins/historian",
       "description": "Rewrite git commit sequences to create clean, readable branches",
-      "version": "0.1.1",
+      "version": "0.2.0",
       "author": {
         "name": "David Herman"
       }

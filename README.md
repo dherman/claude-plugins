@@ -4,15 +4,15 @@ This is my personal marketplace of Claude Code plugins.
 
 ## Available Plugins
 
-### [Git Rewriter](plugins/git-rewriter/)
+### [Historian](plugins/historian/)
 
 Rewrite git commit sequences to create clean, readable branches optimized for code review.
 
-**Version:** 0.1.1
+**Version:** 0.2.0
 
 Takes messy commit history (WIP commits, fixes, typos) and rewrites it into logical, well-documented commits that tell a clear story.
 
-[View Plugin Documentation →](plugins/git-rewriter/README.md)
+[View Plugin Documentation →](plugins/historian/README.md)
 
 ## Installation
 
@@ -29,7 +29,7 @@ To add this marketplace to Claude Code:
 Once the marketplace is added, install plugins with:
 
 ```bash
-/plugin install git-rewriter@dherman
+/plugin install historian@dherman
 ```
 
 Or browse available plugins:
