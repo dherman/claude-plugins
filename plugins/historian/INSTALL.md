@@ -30,7 +30,7 @@ Check that the plugin is available:
 /help
 ```
 
-You should see `/rewrite-commits` in the list of available commands.
+You should see `/narrate` in the list of available commands.
 
 Also check:
 
@@ -63,13 +63,13 @@ Copy the plugin's [settings.json](settings.json) file to `.claude/settings.json`
 Navigate to any git repository and run:
 
 ```bash
-/rewrite-commits Your changeset description here
+/narrate Your changeset description here
 ```
 
 For example:
 
 ```bash
-/rewrite-commits Add user authentication with OAuth support
+/narrate Add user authentication with OAuth support
 ```
 
 ## Uninstalling

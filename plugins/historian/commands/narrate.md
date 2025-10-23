@@ -4,9 +4,9 @@ argument-hint: [changeset-description]
 allowed-tools: Task
 ---
 
-# Rewrite Git Commits
+# Narrate Git Commits
 
-You are tasked with rewriting a git commit sequence to create a clean branch with well-organized, readable commits.
+You are tasked with rewriting a git commit sequence to create a clean branch with well-organized, readable commits that tell a clear story.
 
 ## Input
 
@@ -88,7 +88,7 @@ Once you receive a SUCCESS or ERROR result, you're done.
 ### Simple Success Case
 
 ```
-/rewrite-commits Add user profile feature with avatar support
+/narrate Add user profile feature with avatar support
 ```
 
 1. Invoke historian agent
@@ -98,7 +98,7 @@ Once you receive a SUCCESS or ERROR result, you're done.
 ### Case with Question
 
 ```
-/rewrite-commits Add authentication system
+/narrate Add authentication system
 ```
 
 1. Invoke historian agent

@@ -19,16 +19,16 @@ The plugin takes your current branch (with messy commits) and creates a new "cle
 
 The plugin consists of four main components:
 
-### 1. Slash Command: `/rewrite-commits`
+### 1. Slash Command: `/narrate`
 
 A lightweight entry point for users. Takes a description of what the changeset accomplishes and delegates to the historian agent.
 
 **Usage:**
 ```bash
-/rewrite-commits Add user authentication with OAuth support
+/narrate Add user authentication with OAuth support
 ```
 
-**Location:** `commands/rewrite-commits.md`
+**Location:** `commands/narrate.md`
 
 ### 2. Skill: Rewriting Git Commits
 
@@ -64,7 +64,7 @@ A specialized agent that writes individual commits. It can:
 
 ### Basic Flow
 
-1. You invoke: `/rewrite-commits "Description of your changeset"`
+1. You invoke: `/narrate "Description of your changeset"`
 
 2. The command delegates to the historian agent
 
@@ -163,7 +163,7 @@ historian/
 ├── .claude-plugin/
 │   └── plugin.json                    # Plugin manifest
 ├── commands/
-│   └── rewrite-commits.md             # Slash command (lightweight frontend)
+│   └── narrate.md             # Slash command (lightweight frontend)
 ├── skills/
 │   └── rewriting-git-commits/
 │       └── SKILL.md                    # Skill (lightweight frontend)
@@ -190,7 +190,7 @@ historian/
 
 **Command:**
 ```bash
-/rewrite-commits Add user profile feature with avatar uploads
+/narrate Add user profile feature with avatar uploads
 ```
 
 **After:**
@@ -214,7 +214,7 @@ historian/
 
 **Command:**
 ```bash
-/rewrite-commits Extract user validation logic into separate module
+/narrate Extract user validation logic into separate module
 ```
 
 **After:**
@@ -309,7 +309,7 @@ The commit-writer agent is configured to:
 Commit or stash your changes before running the rewriter:
 ```bash
 git stash
-/rewrite-commits Your changeset description
+/narrate Your changeset description
 git stash pop  # After rewriting
 ```
 
