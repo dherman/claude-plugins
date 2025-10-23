@@ -20,7 +20,7 @@ This is a multi-step process that may require interaction with the user:
 
 Invoke the historian agent using the Task tool:
 
-- **subagent_type**: `"historian:main"`
+- **subagent_type**: `"historian:narrator"`
 - **description**: "Rewrite git commits"
 - **prompt**: "Rewrite the git commit sequence for this changeset: {changeset description from $ARGUMENTS}"
 
@@ -74,7 +74,7 @@ What should I do?
 1. Present the question and options clearly to the user
 2. Wait for the user's answer
 3. Re-invoke the historian agent following the resumption template in [docs/result-protocol.md](../docs/result-protocol.md):
-   - **subagent_type**: `"historian:main"`
+   - **subagent_type**: `"historian:narrator"`
    - **description**: "Resume git rewriter"
    - **prompt**: Use the standard resumption format with the Resume State and User's Answer
 4. Go back to Step 2 to handle the new result

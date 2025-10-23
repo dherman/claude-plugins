@@ -17,7 +17,7 @@ This skill handles the result protocol from the historian agent and may require 
 When this skill is invoked with a changeset description:
 
 1. Invoke the historian agent using Task tool:
-   - **subagent_type**: `"historian:main"`
+   - **subagent_type**: `"historian:narrator"`
    - **description**: "Rewrite git commits"
    - **prompt**: Include the changeset description
 

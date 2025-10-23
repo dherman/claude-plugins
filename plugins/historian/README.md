@@ -36,7 +36,7 @@ A lightweight skill that can be invoked programmatically. Simply delegates to th
 
 **Location:** `skills/rewriting-git-commits/SKILL.md`
 
-### 3. Agent: `historian`
+### 3. Agent: `narrator` (cyan)
 
 The main orchestrator that manages the overall rewriting process through six steps:
 
@@ -47,7 +47,7 @@ The main orchestrator that manages the overall rewriting process through six ste
 5. **Execute Plan** - Delegates to commit-writer agent for each commit
 6. **Validate Results** - Verifies clean branch matches original
 
-**Location:** `agents/main.md`
+**Location:** `agents/narrator.md`
 
 ### 4. Agent: `commit-writer` (orange)
 
@@ -168,7 +168,7 @@ historian/
 │   └── rewriting-git-commits/
 │       └── SKILL.md                    # Skill (lightweight frontend)
 ├── agents/
-│   ├── main.md                # Main orchestrator agent (cyan)
+│   ├── narrator.md                    # Main orchestrator agent (cyan)
 │   └── commit-writer.md               # Commit creation agent (orange)
 ├── docs/
 │   └── result-protocol.md             # Shared protocol specification

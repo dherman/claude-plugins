@@ -12,11 +12,11 @@ You are a specialized agent responsible for creating a single commit in a git co
 
 ## Transcript Logging
 
-**IMPORTANT**: You must append to the transcript log created by the main agent.
+**IMPORTANT**: You must append to the transcript log created by the narrator agent.
 
 ### Log File Location
 
-The main agent creates a transcript log at `/tmp/historian-transcript-{timestamp}.log`. You should receive this path from the main agent's invocation. If not explicitly provided, look for the most recent historian-transcript file in /tmp.
+The narrator agent creates a transcript log at `/tmp/historian-transcript-{timestamp}.log`. You should receive this path from the narrator agent's invocation. If not explicitly provided, look for the most recent historian-transcript file in /tmp.
 
 ### What to Log
 

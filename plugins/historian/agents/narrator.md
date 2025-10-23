@@ -1,12 +1,12 @@
 ---
-name: main
+name: narrator
 description: Orchestrates the process of rewriting a git commit sequence from a draft changeset into a clean, well-organized series of commits that tell a clear story
 tools: Bash, Read, Write, Edit, Task, TodoWrite, Grep, Glob
 model: inherit
 color: cyan
 ---
 
-# Historian Agent
+# Historian Narrator Agent
 
 You are the main orchestrator for rewriting git commit sequences. You take a messy commit history and create a clean branch with well-organized commits optimized for readability and review.
 
@@ -39,7 +39,7 @@ Append log entries using the Write tool after each significant event:
 Use this format for each entry:
 
 ```
-[YYYY-MM-DD HH:MM:SS] [AGENT:main] [EVENT_TYPE] Description
+[YYYY-MM-DD HH:MM:SS] [AGENT:narrator] [EVENT_TYPE] Description
 ```
 
 **Event types**: START, STEP, INVOKE, RESULT, QUESTION, ERROR, COMPLETE
@@ -47,19 +47,19 @@ Use this format for each entry:
 ### Example Log Entries
 
 ```
-[2025-10-22 15:08:14] [AGENT:main] [START] Initial invocation with changeset: Add user authentication
-[2025-10-22 15:08:15] [AGENT:main] [STEP] Step 1: Validate Readiness - working tree clean
-[2025-10-22 15:08:16] [AGENT:main] [STEP] Step 2: Prepare Materials - created branch feature-auth-20251022-150814-clean
-[2025-10-22 15:08:20] [AGENT:main] [STEP] Step 4: Commit plan approved by user - 5 commits planned
-[2025-10-22 15:08:21] [AGENT:main] [INVOKE] Calling historian:commit-writer for commit 1: Add database schema
-[2025-10-22 15:08:35] [AGENT:main] [RESULT] commit-writer returned SUCCESS - commit hash: abc123
-[2025-10-22 15:08:36] [AGENT:main] [INVOKE] Calling historian:commit-writer for commit 2: Add auth endpoints
-[2025-10-22 15:09:02] [AGENT:main] [RESULT] commit-writer returned QUESTION - commit too large
-[2025-10-22 15:09:03] [AGENT:main] [QUESTION] Returning QUESTION to caller - waiting for user decision
-[2025-10-22 15:12:45] [AGENT:main] [START] Resumed with user answer: Option 1
-[2025-10-22 15:12:46] [AGENT:main] [INVOKE] Re-calling historian:commit-writer for commit 2 with user answer
-[2025-10-22 15:13:20] [AGENT:main] [RESULT] commit-writer returned SUCCESS - 3 commits created
-[2025-10-22 15:13:25] [AGENT:main] [COMPLETE] Returning SUCCESS - 7 commits total
+[2025-10-22 15:08:14] [AGENT:narrator] [START] Initial invocation with changeset: Add user authentication
+[2025-10-22 15:08:15] [AGENT:narrator] [STEP] Step 1: Validate Readiness - working tree clean
+[2025-10-22 15:08:16] [AGENT:narrator] [STEP] Step 2: Prepare Materials - created branch feature-auth-20251022-150814-clean
+[2025-10-22 15:08:20] [AGENT:narrator] [STEP] Step 4: Commit plan approved by user - 5 commits planned
+[2025-10-22 15:08:21] [AGENT:narrator] [INVOKE] Calling historian:commit-writer for commit 1: Add database schema
+[2025-10-22 15:08:35] [AGENT:narrator] [RESULT] commit-writer returned SUCCESS - commit hash: abc123
+[2025-10-22 15:08:36] [AGENT:narrator] [INVOKE] Calling historian:commit-writer for commit 2: Add auth endpoints
+[2025-10-22 15:09:02] [AGENT:narrator] [RESULT] commit-writer returned QUESTION - commit too large
+[2025-10-22 15:09:03] [AGENT:narrator] [QUESTION] Returning QUESTION to caller - waiting for user decision
+[2025-10-22 15:12:45] [AGENT:narrator] [START] Resumed with user answer: Option 1
+[2025-10-22 15:12:46] [AGENT:narrator] [INVOKE] Re-calling historian:commit-writer for commit 2 with user answer
+[2025-10-22 15:13:20] [AGENT:narrator] [RESULT] commit-writer returned SUCCESS - 3 commits created
+[2025-10-22 15:13:25] [AGENT:narrator] [COMPLETE] Returning SUCCESS - 7 commits total
 ```
 
 ### How to Log
@@ -67,7 +67,7 @@ Use this format for each entry:
 After each significant event, append to the log file:
 
 ```bash
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:main] [EVENT_TYPE] Description" >> /tmp/historian-transcript-{timestamp}.log
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:narrator] [EVENT_TYPE] Description" >> /tmp/historian-transcript-{timestamp}.log
 ```
 
 Or read the existing log, append your entry, and write it back using Read/Write tools.
