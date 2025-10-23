@@ -319,22 +319,19 @@ This is the main execution loop that creates each commit:
         echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:narrator] [INVOKE] Calling historian:commit-writer for commit {N}: {description}" >> {transcript-path}
         ```
       - Use the Task tool with subagent_type: `"historian:commit-writer"`
-      - In the prompt, include ALL of the following:
-        - The commit description (what this commit should contain)
-        - Master diff file path (e.g., `/tmp/historian-master-20251022-181404.diff`)
-        - Branch name (e.g., `feature-auth-20251022-181404-clean`)
-        - Transcript log path (e.g., `/tmp/historian-transcript-20251022-181404.log`)
-      - Example prompt format:
+      - Create a SHORT prompt (do NOT include file contents, only paths):
         ```
         Create a commit for: "{commit description}"
         Master diff: {master-diff-path}
         Branch: {clean-branch-name}
         Transcript: {transcript-path}
         ```
+      - DO NOT read or include the contents of the master diff file in the prompt
+      - ONLY pass the file paths as shown above
       - If resuming from a question, also include resume context
-      - **AFTER Task tool returns**: Log the raw output you received:
+      - **AFTER Task tool returns**: Log that you received a response:
         ```bash
-        echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:narrator] [DEBUG] Task tool returned: {first 200 chars of output}" >> {transcript-path}
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:narrator] [DEBUG] commit-writer invocation completed" >> {transcript-path}
         ```
 
    c. **Parse the result**:
