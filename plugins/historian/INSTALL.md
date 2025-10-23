@@ -1,4 +1,4 @@
-# Installing the Git Rewriter Plugin
+# Installing the Historian Plugin
 
 This plugin can be installed from GitHub so it's available across all your projects.
 
@@ -17,7 +17,7 @@ This adds the GitHub repository as a plugin marketplace.
 ### 2. Install the Plugin
 
 ```bash
-/plugin install git-rewriter@dherman
+/plugin install historian@dherman
 ```
 
 This installs the plugin from the GitHub marketplace.
@@ -44,7 +44,7 @@ You should see `commit-writer` in the list.
 /skills
 ```
 
-You should see "Git Commit Rewriter" skill.
+You should see "Rewriting Git Commits" skill.
 
 ### 4. Configure Permissions (Optional but Recommended)
 
@@ -77,7 +77,7 @@ For example:
 To remove the plugin:
 
 ```bash
-/plugin uninstall git-rewriter
+/plugin uninstall historian
 ```
 
 To remove the GitHub marketplace:
@@ -91,8 +91,8 @@ To remove the GitHub marketplace:
 The plugin will automatically update when changes are pushed to the GitHub repository. To force an update:
 
 ```bash
-/plugin uninstall git-rewriter
-/plugin install git-rewriter@dherman
+/plugin uninstall historian
+/plugin install historian@dherman
 ```
 
 ## Troubleshooting
@@ -100,7 +100,7 @@ The plugin will automatically update when changes are pushed to the GitHub repos
 ### Plugin not showing up
 
 - Verify marketplace was added: `/plugin marketplace list`
-- Try reinstalling: `/plugin uninstall git-rewriter && /plugin install git-rewriter@dherman`
+- Try reinstalling: `/plugin uninstall historian && /plugin install historian@dherman`
 - Restart Claude Code
 
 ### Commands not available

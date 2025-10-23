@@ -16,7 +16,7 @@ You are a specialized agent responsible for creating a single commit in a git co
 
 ### Log File Location
 
-The main agent creates a transcript log at `/tmp/git-rewriter-transcript-{timestamp}.log`. You should receive this path from the main agent's invocation. If not explicitly provided, look for the most recent git-rewriter-transcript file in /tmp.
+The main agent creates a transcript log at `/tmp/historian-transcript-{timestamp}.log`. You should receive this path from the main agent's invocation. If not explicitly provided, look for the most recent historian-transcript file in /tmp.
 
 ### What to Log
 
@@ -59,7 +59,7 @@ Use this format:
 Append to the transcript using bash:
 
 ```bash
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:commit-writer] [EVENT_TYPE] Description" >> /tmp/git-rewriter-transcript-{timestamp}.log
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:commit-writer] [EVENT_TYPE] Description" >> /tmp/historian-transcript-{timestamp}.log
 ```
 
 ### Include Transcript in Results
@@ -70,7 +70,7 @@ When returning SUCCESS, include the transcript path if you created the log file:
 RESULT: SUCCESS
 Commit hash: {hash}
 Files changed: {count}
-Transcript: /tmp/git-rewriter-transcript-{timestamp}.log
+Transcript: /tmp/historian-transcript-{timestamp}.log
 ```
 
 ## Input Parameters
@@ -87,7 +87,7 @@ Information about the commit to create:
 **Example prompt:**
 ```
 Create a commit for: "add user authentication logic"
-Master diff: /tmp/git-rewriter-master-20251022-100000.diff
+Master diff: /tmp/historian-master-20251022-100000.diff
 Branch: feature/auth-20251022-100000-clean
 ```
 
@@ -142,7 +142,7 @@ Continue from where you left off.
 Resume the commit-writer process.
 
 Resume State:
-  - Master diff: /tmp/git-rewriter-master-20251022-100000.diff
+  - Master diff: /tmp/historian-master-20251022-100000.diff
   - Branch: feature/auth-20251022-100000-clean
   - Commit description: add user authentication system
   - Analysis: Found 23 files across auth, authorization, and session layers

@@ -18,15 +18,15 @@ This is a multi-step process that may require interaction with the user:
 
 ### Step 1: Initial Invocation
 
-Invoke the git-rewriter agent using the Task tool:
+Invoke the historian agent using the Task tool:
 
-- **subagent_type**: `"git-rewriter:main"`
+- **subagent_type**: `"historian:main"`
 - **description**: "Rewrite git commits"
 - **prompt**: "Rewrite the git commit sequence for this changeset: {changeset description from $ARGUMENTS}"
 
 ### Step 2: Handle the Result
 
-The git-rewriter agent will return one of three results:
+The historian agent will return one of three results:
 
 #### SUCCESS Result
 
@@ -73,8 +73,8 @@ What should I do?
 **Action**:
 1. Present the question and options clearly to the user
 2. Wait for the user's answer
-3. Re-invoke the git-rewriter agent following the resumption template in [docs/result-protocol.md](../docs/result-protocol.md):
-   - **subagent_type**: `"git-rewriter:main"`
+3. Re-invoke the historian agent following the resumption template in [docs/result-protocol.md](../docs/result-protocol.md):
+   - **subagent_type**: `"historian:main"`
    - **description**: "Resume git rewriter"
    - **prompt**: Use the standard resumption format with the Resume State and User's Answer
 4. Go back to Step 2 to handle the new result
@@ -91,7 +91,7 @@ Once you receive a SUCCESS or ERROR result, you're done.
 /rewrite-commits Add user profile feature with avatar support
 ```
 
-1. Invoke git-rewriter agent
+1. Invoke historian agent
 2. Agent returns SUCCESS
 3. Report to user: "Successfully created clean branch with 4 commits"
 
@@ -101,11 +101,11 @@ Once you receive a SUCCESS or ERROR result, you're done.
 /rewrite-commits Add authentication system
 ```
 
-1. Invoke git-rewriter agent
+1. Invoke historian agent
 2. Agent returns QUESTION about splitting a large commit
 3. Present options to user
 4. User chooses "Option 1"
-5. Re-invoke git-rewriter agent with resume context and answer
+5. Re-invoke historian agent with resume context and answer
 6. Agent returns SUCCESS
 7. Report to user: "Successfully created clean branch with 6 commits"
 

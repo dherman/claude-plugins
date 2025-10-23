@@ -1,5 +1,5 @@
 {
-  "name": "git-rewriter",
+  "name": "historian",
   "version": "0.1.1",
   "description": "Rewrite git commit sequences to create clean, readable branches optimized for code review",
   "author": {

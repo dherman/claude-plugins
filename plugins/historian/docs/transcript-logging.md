@@ -1,15 +1,15 @@
 # Transcript Logging
 
-The git-rewriter plugin maintains a detailed transcript log to help with debugging and understanding the control flow between agents.
+The historian plugin maintains a detailed transcript log to help with debugging and understanding the control flow between agents.
 
 ## Overview
 
-When the git-rewriter runs, it creates a transcript log file in `/tmp` that records all significant events as they happen. Both the `main` and `commit-writer` agents append to this shared log file.
+When the historian runs, it creates a transcript log file in `/tmp` that records all significant events as they happen. Both the `main` and `commit-writer` agents append to this shared log file.
 
 ## Log File Location
 
 ```
-/tmp/git-rewriter-transcript-{timestamp}.log
+/tmp/historian-transcript-{timestamp}.log
 ```
 
 The timestamp format is `YYYYMMDD-HHMMSS`, matching the timestamp used for the clean branch name and master diff file.
@@ -53,14 +53,14 @@ Here's what a typical transcript looks like for a successful run with a question
 [2025-10-22 15:08:17] [AGENT:main] [STEP] Step 3: Develop the Story - identified 3 main themes
 [2025-10-22 15:08:20] [AGENT:main] [STEP] Step 4: Commit plan approved by user - 5 commits planned
 [2025-10-22 15:08:21] [AGENT:main] [STEP] Step 5: Execute Plan - starting commit creation
-[2025-10-22 15:08:21] [AGENT:main] [INVOKE] Calling git-rewriter:commit-writer for commit 1: Add database schema
+[2025-10-22 15:08:21] [AGENT:main] [INVOKE] Calling historian:commit-writer for commit 1: Add database schema
 [2025-10-22 15:08:21] [AGENT:commit-writer] [START] Creating commit: Add database schema
 [2025-10-22 15:08:25] [AGENT:commit-writer] [ANALYZE] Found 3 files, 45 lines changed - size: small
 [2025-10-22 15:08:26] [AGENT:commit-writer] [DECIDE] Commit size acceptable, proceeding
 [2025-10-22 15:08:34] [AGENT:commit-writer] [COMMIT] Created commit abc123: Add database schema
 [2025-10-22 15:08:35] [AGENT:commit-writer] [COMPLETE] Returning SUCCESS
 [2025-10-22 15:08:35] [AGENT:main] [RESULT] commit-writer returned SUCCESS - commit hash: abc123
-[2025-10-22 15:08:36] [AGENT:main] [INVOKE] Calling git-rewriter:commit-writer for commit 2: Add auth endpoints
+[2025-10-22 15:08:36] [AGENT:main] [INVOKE] Calling historian:commit-writer for commit 2: Add auth endpoints
 [2025-10-22 15:08:56] [AGENT:commit-writer] [START] Creating commit: Add auth endpoints
 [2025-10-22 15:09:00] [AGENT:commit-writer] [ANALYZE] Found 18 files, 320 lines changed - size: large
 [2025-10-22 15:09:01] [AGENT:commit-writer] [DECIDE] Commit too large, requesting split guidance
@@ -68,14 +68,14 @@ Here's what a typical transcript looks like for a successful run with a question
 [2025-10-22 15:09:02] [AGENT:main] [RESULT] commit-writer returned QUESTION - commit too large
 [2025-10-22 15:09:03] [AGENT:main] [QUESTION] Returning QUESTION to caller - waiting for user decision
 [2025-10-22 15:12:45] [AGENT:main] [START] Resumed with user answer: Option 1
-[2025-10-22 15:12:46] [AGENT:main] [INVOKE] Re-calling git-rewriter:commit-writer for commit 2 with user answer
+[2025-10-22 15:12:46] [AGENT:main] [INVOKE] Re-calling historian:commit-writer for commit 2 with user answer
 [2025-10-22 15:12:46] [AGENT:commit-writer] [START] Resumed - splitting commit into 3 parts
 [2025-10-22 15:13:00] [AGENT:commit-writer] [COMMIT] Created commit def456: Add auth models
 [2025-10-22 15:13:10] [AGENT:commit-writer] [COMMIT] Created commit ghi789: Add auth controllers
 [2025-10-22 15:13:20] [AGENT:commit-writer] [COMMIT] Created commit jkl012: Add auth routes
 [2025-10-22 15:13:20] [AGENT:commit-writer] [COMPLETE] Returning SUCCESS - 3 commits created
 [2025-10-22 15:13:21] [AGENT:main] [RESULT] commit-writer returned SUCCESS - 3 commits created
-[2025-10-22 15:13:22] [AGENT:main] [INVOKE] Calling git-rewriter:commit-writer for commit 3: Add tests
+[2025-10-22 15:13:22] [AGENT:main] [INVOKE] Calling historian:commit-writer for commit 3: Add tests
 [2025-10-22 15:13:22] [AGENT:commit-writer] [START] Creating commit: Add tests
 [2025-10-22 15:13:24] [AGENT:commit-writer] [ANALYZE] Found 5 files, 120 lines changed - size: medium
 [2025-10-22 15:13:25] [AGENT:commit-writer] [DECIDE] Commit size acceptable, proceeding
@@ -93,7 +93,7 @@ Here's what a typical transcript looks like for a successful run with a question
 
 In Step 1 (Validate Readiness), the main agent:
 1. Generates a timestamp
-2. Creates the log file path: `/tmp/git-rewriter-transcript-{timestamp}.log`
+2. Creates the log file path: `/tmp/historian-transcript-{timestamp}.log`
 3. Writes the first entry: `[timestamp] [AGENT:main] [START] ...`
 
 ### 2. Main Agent Passes Log Path
@@ -102,9 +102,9 @@ When invoking the commit-writer agent, the main agent includes the transcript lo
 
 ```
 Create a commit for: "add user authentication logic"
-Master diff: /tmp/git-rewriter-master-20251022-150814.diff
+Master diff: /tmp/historian-master-20251022-150814.diff
 Branch: feature/auth-20251022-150814-clean
-Transcript: /tmp/git-rewriter-transcript-20251022-150814.log
+Transcript: /tmp/historian-transcript-20251022-150814.log
 ```
 
 ### 3. Commit-Writer Appends to Log
@@ -123,7 +123,7 @@ When resumed after a QUESTION:
 
 ## Accessing the Transcript
 
-After a git-rewriter run completes, the transcript path is included in the final result:
+After a historian run completes, the transcript path is included in the final result:
 
 ```
 RESULT: SUCCESS
@@ -131,13 +131,13 @@ Original branch: feature/auth
 Clean branch: feature/auth-20251022-150814-clean
 Base commit: abc123
 Commits created: 7
-Transcript: /tmp/git-rewriter-transcript-20251022-150814.log
+Transcript: /tmp/historian-transcript-20251022-150814.log
 ```
 
 You can then read the transcript to see exactly what happened:
 
 ```bash
-cat /tmp/git-rewriter-transcript-20251022-150814.log
+cat /tmp/historian-transcript-20251022-150814.log
 ```
 
 ## Benefits
@@ -153,7 +153,7 @@ cat /tmp/git-rewriter-transcript-20251022-150814.log
 Both agents use bash commands to append to the log:
 
 ```bash
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:main] [STEP] Step 1: Validate Readiness" >> /tmp/git-rewriter-transcript-{timestamp}.log
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:main] [STEP] Step 1: Validate Readiness" >> /tmp/historian-transcript-{timestamp}.log
 ```
 
 The logging is designed to have minimal performance impact while providing comprehensive visibility into the agent workflow.

@@ -1,4 +1,4 @@
-# Git Commit Rewriter - Claude Code Plugin
+# Historian - Claude Code Plugin
 
 A Claude Code plugin that automates the process of rewriting git commit sequences to create clean, readable branches optimized for code review.
 
@@ -21,7 +21,7 @@ The plugin consists of four main components:
 
 ### 1. Slash Command: `/rewrite-commits`
 
-A lightweight entry point for users. Takes a description of what the changeset accomplishes and delegates to the git-rewriter agent.
+A lightweight entry point for users. Takes a description of what the changeset accomplishes and delegates to the historian agent.
 
 **Usage:**
 ```bash
@@ -32,11 +32,11 @@ A lightweight entry point for users. Takes a description of what the changeset a
 
 ### 2. Skill: Rewriting Git Commits
 
-A lightweight skill that can be invoked programmatically. Simply delegates to the git-rewriter agent.
+A lightweight skill that can be invoked programmatically. Simply delegates to the historian agent.
 
 **Location:** `skills/rewriting-git-commits/SKILL.md`
 
-### 3. Agent: `git-rewriter`
+### 3. Agent: `historian`
 
 The main orchestrator that manages the overall rewriting process through six steps:
 
@@ -47,7 +47,7 @@ The main orchestrator that manages the overall rewriting process through six ste
 5. **Execute Plan** - Delegates to commit-writer agent for each commit
 6. **Validate Results** - Verifies clean branch matches original
 
-**Location:** `agents/git-rewriter.md`
+**Location:** `agents/main.md`
 
 ### 4. Agent: `commit-writer` (orange)
 
@@ -66,30 +66,30 @@ A specialized agent that writes individual commits. It can:
 
 1. You invoke: `/rewrite-commits "Description of your changeset"`
 
-2. The command delegates to the git-rewriter agent
+2. The command delegates to the historian agent
 
-3. The git-rewriter agent validates your git state and prepares materials:
+3. The historian agent validates your git state and prepares materials:
    - Creates a new branch: `{your-branch}-{timestamp}-clean`
    - Generates a master diff of all changes
 
-4. The git-rewriter agent analyzes your changes and develops a story:
+4. The historian agent analyzes your changes and develops a story:
    - Identifies key themes and layers
    - Determines logical ordering
    - Creates narrative structure
 
-5. The git-rewriter agent creates a commit plan:
+5. The historian agent creates a commit plan:
    - Breaks story into discrete commits
    - Estimates size and identifies files
    - Presents plan for your approval
 
 6. You review and approve the plan
 
-7. The git-rewriter agent executes the plan:
+7. The historian agent executes the plan:
    - Delegates each commit to the commit-writer agent (orange)
    - Handles questions if commits need splitting
    - Tracks progress with todo list
 
-8. The git-rewriter agent validates results:
+8. The historian agent validates results:
    - Compares clean branch to original
    - Ensures contents are identical
    - Provides summary
@@ -100,7 +100,7 @@ The plugin uses a consistent result protocol throughout the agent hierarchy:
 
 #### Three Result Types
 
-Every agent (git-rewriter and commit-writer) returns one of:
+Every agent (historian and commit-writer) returns one of:
 
 1. **SUCCESS** - Operation completed successfully
 2. **ERROR** - Unrecoverable error occurred
@@ -135,13 +135,13 @@ Option 3: Four commits - (1) database schema, (2) auth service, (3) middleware, 
 What approach should I take?
 ```
 
-**Propagated through git-rewriter:**
+**Propagated through historian:**
 
-The git-rewriter agent receives this QUESTION, wraps it with its own resume state, and passes it up to the command/skill, which presents it to you.
+The historian agent receives this QUESTION, wraps it with its own resume state, and passes it up to the command/skill, which presents it to you.
 
 **After your answer:**
 
-Your answer flows back down: command → git-rewriter agent → commit-writer agent, and execution resumes seamlessly.
+Your answer flows back down: command → historian agent → commit-writer agent, and execution resumes seamlessly.
 
 ## Installation
 
@@ -151,7 +151,7 @@ Quick start:
 
 ```bash
 /plugin marketplace add https://github.com/dherman/claude-plugins
-/plugin install git-rewriter@dherman
+/plugin install historian@dherman
 ```
 
 ### Plugin Structure
@@ -159,7 +159,7 @@ Quick start:
 The plugin contains:
 
 ```
-git-rewriter/
+historian/
 ├── .claude-plugin/
 │   └── plugin.json                    # Plugin manifest
 ├── commands/
@@ -168,7 +168,7 @@ git-rewriter/
 │   └── rewriting-git-commits/
 │       └── SKILL.md                    # Skill (lightweight frontend)
 ├── agents/
-│   ├── git-rewriter.md                # Main orchestrator agent (cyan)
+│   ├── main.md                # Main orchestrator agent (cyan)
 │   └── commit-writer.md               # Commit creation agent (orange)
 ├── docs/
 │   └── result-protocol.md             # Shared protocol specification
@@ -234,7 +234,7 @@ The plugin uses a three-level architecture:
 ```
 Command/Skill (frontends)
     ↓
-git-rewriter agent (cyan) - orchestrator
+historian agent (cyan) - orchestrator
     ↓
 commit-writer agent (orange) - individual commits
 ```
@@ -252,7 +252,7 @@ See the [Result Protocol documentation](docs/result-protocol.md) for detailed fo
 
 This design optimizes context usage by:
 1. Keeping frontends (command/skill) lightweight
-2. Loading heavy orchestration logic only when needed (git-rewriter agent)
+2. Loading heavy orchestration logic only when needed (historian agent)
 3. Isolating commit creation logic (commit-writer agent)
 4. Supporting seamless pause/resume for user interaction
 

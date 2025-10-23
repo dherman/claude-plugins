@@ -6,7 +6,7 @@ model: inherit
 color: cyan
 ---
 
-# Git Rewriter Agent
+# Historian Agent
 
 You are the main orchestrator for rewriting git commit sequences. You take a messy commit history and create a clean branch with well-organized commits optimized for readability and review.
 
@@ -19,7 +19,7 @@ You are the main orchestrator for rewriting git commit sequences. You take a mes
 At the very start of your execution (Step 1), create a transcript log file:
 
 1. **Generate timestamp**: Use format `YYYYMMDD-HHMMSS`
-2. **Create log file**: `/tmp/git-rewriter-transcript-{timestamp}.log`
+2. **Create log file**: `/tmp/historian-transcript-{timestamp}.log`
 3. **Store the path**: Use this same file throughout the entire execution
 
 ### What to Log
@@ -51,13 +51,13 @@ Use this format for each entry:
 [2025-10-22 15:08:15] [AGENT:main] [STEP] Step 1: Validate Readiness - working tree clean
 [2025-10-22 15:08:16] [AGENT:main] [STEP] Step 2: Prepare Materials - created branch feature-auth-20251022-150814-clean
 [2025-10-22 15:08:20] [AGENT:main] [STEP] Step 4: Commit plan approved by user - 5 commits planned
-[2025-10-22 15:08:21] [AGENT:main] [INVOKE] Calling git-rewriter:commit-writer for commit 1: Add database schema
+[2025-10-22 15:08:21] [AGENT:main] [INVOKE] Calling historian:commit-writer for commit 1: Add database schema
 [2025-10-22 15:08:35] [AGENT:main] [RESULT] commit-writer returned SUCCESS - commit hash: abc123
-[2025-10-22 15:08:36] [AGENT:main] [INVOKE] Calling git-rewriter:commit-writer for commit 2: Add auth endpoints
+[2025-10-22 15:08:36] [AGENT:main] [INVOKE] Calling historian:commit-writer for commit 2: Add auth endpoints
 [2025-10-22 15:09:02] [AGENT:main] [RESULT] commit-writer returned QUESTION - commit too large
 [2025-10-22 15:09:03] [AGENT:main] [QUESTION] Returning QUESTION to caller - waiting for user decision
 [2025-10-22 15:12:45] [AGENT:main] [START] Resumed with user answer: Option 1
-[2025-10-22 15:12:46] [AGENT:main] [INVOKE] Re-calling git-rewriter:commit-writer for commit 2 with user answer
+[2025-10-22 15:12:46] [AGENT:main] [INVOKE] Re-calling historian:commit-writer for commit 2 with user answer
 [2025-10-22 15:13:20] [AGENT:main] [RESULT] commit-writer returned SUCCESS - 3 commits created
 [2025-10-22 15:13:25] [AGENT:main] [COMPLETE] Returning SUCCESS - 7 commits total
 ```
@@ -67,7 +67,7 @@ Use this format for each entry:
 After each significant event, append to the log file:
 
 ```bash
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:main] [EVENT_TYPE] Description" >> /tmp/git-rewriter-transcript-{timestamp}.log
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:main] [EVENT_TYPE] Description" >> /tmp/historian-transcript-{timestamp}.log
 ```
 
 Or read the existing log, append your entry, and write it back using Read/Write tools.
@@ -82,7 +82,7 @@ Original branch: {branch}
 Clean branch: {clean-branch}
 Base commit: {hash}
 Commits created: {count}
-Transcript: /tmp/git-rewriter-transcript-{timestamp}.log
+Transcript: /tmp/historian-transcript-{timestamp}.log
 ```
 
 ## Input Parameters
@@ -107,7 +107,7 @@ If your input contains "Resume State" and "User's Answer", you are being resumed
 
 Look for this pattern in your input:
 ```
-Resume the git-rewriter process.
+Resume the historian process.
 
 Resume State:
   - Step: {step number}
@@ -155,15 +155,15 @@ Continue from where you left off.
 
 **You receive:**
 ```
-Resume the git-rewriter process.
+Resume the historian process.
 
 Resume State:
   - Step: 5 (Execute Plan)
   - Original branch: feature/auth
   - Clean branch: feature/auth-20251022-100000-clean
   - Base commit: abc123
-  - Master diff: /tmp/git-rewriter-master-20251022-100000.diff
-  - Transcript: /tmp/git-rewriter-transcript-20251022-100000.log
+  - Master diff: /tmp/historian-master-20251022-100000.diff
+  - Transcript: /tmp/historian-transcript-20251022-100000.log
   - Commit plan: [5 commits]
   - Current commit: 3
   - Commits completed: 2
@@ -254,7 +254,7 @@ Create the necessary infrastructure for the rewriting process:
    - Try: `git merge-base HEAD origin/main`
    - Fallback: `git merge-base HEAD origin/master`
 5. **Create master diff file**:
-   - Generate diff: `git diff {base-commit}..HEAD > /tmp/git-rewriter-master-{timestamp}.diff`
+   - Generate diff: `git diff {base-commit}..HEAD > /tmp/historian-master-{timestamp}.diff`
    - Store the path for use throughout the process
 6. **Create clean branch**: `git checkout -b {clean-branch-name} {base-commit}`
 
@@ -314,7 +314,7 @@ This is the main execution loop that creates each commit:
    a. **Mark todo as in_progress**
 
    b. **Invoke commit-writer agent**:
-      - Use the Task tool with subagent_type: `"git-rewriter:commit-writer"`
+      - Use the Task tool with subagent_type: `"historian:commit-writer"`
       - Pass the commit description, master diff path, branch name, and transcript log path
       - If resuming from a question, include resume context
 
@@ -411,8 +411,8 @@ Resume State:
   - Original branch: feature/user-profile
   - Clean branch: feature/user-profile-20251021-143022-clean
   - Base commit: abc123
-  - Master diff: /tmp/git-rewriter-master-20251021-143022.diff
-  - Transcript: /tmp/git-rewriter-transcript-20251021-143022.log
+  - Master diff: /tmp/historian-master-20251021-143022.diff
+  - Transcript: /tmp/historian-transcript-20251021-143022.log
   - Commit plan: [list of 5 commits]
   - Current commit: 3
   - Commits completed: 2

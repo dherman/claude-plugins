@@ -6,24 +6,24 @@ allowed-tools: Task
 
 # Rewriting Git Commits Skill
 
-This skill is a lightweight frontend that invokes the git-rewriter agent to rewrite commit sequences.
+This skill is a lightweight frontend that invokes the historian agent to rewrite commit sequences.
 
 ## Your Task
 
-This skill handles the result protocol from the git-rewriter agent and may require multiple invocations to handle user questions.
+This skill handles the result protocol from the historian agent and may require multiple invocations to handle user questions.
 
 ### Step 1: Initial Invocation
 
 When this skill is invoked with a changeset description:
 
-1. Invoke the git-rewriter agent using Task tool:
-   - **subagent_type**: `"git-rewriter:main"`
+1. Invoke the historian agent using Task tool:
+   - **subagent_type**: `"historian:main"`
    - **description**: "Rewrite git commits"
    - **prompt**: Include the changeset description
 
 ### Step 2: Handle the Result
 
-The git-rewriter agent returns one of three results:
+The historian agent returns one of three results:
 
 #### SUCCESS Result
 ```
@@ -64,7 +64,7 @@ What should I do?
 **Action**:
 1. Present the question and options to the user (via your caller)
 2. Wait for the user's answer
-3. Re-invoke git-rewriter agent following the resumption template in [docs/result-protocol.md](../../docs/result-protocol.md):
+3. Re-invoke historian agent following the resumption template in [docs/result-protocol.md](../../docs/result-protocol.md):
    - Use standard format with Resume State and User's Answer
 4. Go back to Step 2 to handle the new result
 
@@ -77,7 +77,7 @@ Once you receive SUCCESS or ERROR, pass it back to your caller.
 **Simple case:**
 ```
 Input: "Add user authentication with OAuth support"
-→ Invoke git-rewriter agent
+→ Invoke historian agent
 → Agent returns SUCCESS
 → Return success to caller
 ```
@@ -85,11 +85,11 @@ Input: "Add user authentication with OAuth support"
 **Case with question:**
 ```
 Input: "Add authentication system"
-→ Invoke git-rewriter agent
+→ Invoke historian agent
 → Agent returns QUESTION
 → Present question to user (via caller)
 → User answers "Option 1"
-→ Re-invoke git-rewriter with resume context
+→ Re-invoke historian with resume context
 → Agent returns SUCCESS
 → Return success to caller
 ```

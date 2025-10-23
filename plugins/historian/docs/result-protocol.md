@@ -1,6 +1,6 @@
 # Result Protocol
 
-This document defines the standard result protocol used by all agents in the git-rewriter plugin.
+This document defines the standard result protocol used by all agents in the historian plugin.
 
 ## Overview
 
@@ -26,7 +26,7 @@ Message: refactor: extract user validation into separate module
 Files changed: 3
 ```
 
-**Example from git-rewriter:**
+**Example from historian:**
 ```
 RESULT: SUCCESS
 Original branch: feature/user-profile
@@ -54,7 +54,7 @@ Description: Failed to apply changes from master diff
 Details: git apply exited with code 1: patch does not apply
 ```
 
-**Example from git-rewriter:**
+**Example from historian:**
 ```
 RESULT: ERROR
 Step: 2 (Prepare Materials)
@@ -87,7 +87,7 @@ What should I do?
 RESULT: QUESTION
 Context: Creating commit "add user authentication system"
 Resume State:
-  - Master diff: /tmp/git-rewriter-master-20251021-143022.diff
+  - Master diff: /tmp/historian-master-20251021-143022.diff
   - Branch: feature/auth-20251021-143022-clean
   - Commit description: add user authentication system
   - Analysis: Found 23 files across multiple layers
@@ -101,7 +101,7 @@ Option 3: Four commits by component - (1) database schema, (2) auth service, (3)
 What approach should I take?
 ```
 
-**Example from git-rewriter:**
+**Example from historian:**
 ```
 RESULT: QUESTION
 Context: Executing commit plan - commit 3 of 5
@@ -110,7 +110,7 @@ Resume State:
   - Original branch: feature/user-profile
   - Clean branch: feature/user-profile-20251021-143022-clean
   - Base commit: abc123
-  - Master diff: /tmp/git-rewriter-master-20251021-143022.diff
+  - Master diff: /tmp/historian-master-20251021-143022.diff
   - Commit plan: [detailed plan with 5 commits]
   - Current commit: 3
   - Commits completed: 2
@@ -135,7 +135,7 @@ When returning a QUESTION result, agents must include enough state information t
 - Commit description
 - Any analysis or partial work completed
 
-### For git-rewriter:
+### For historian:
 - Current step (1-6)
 - Original branch name
 - Clean branch name
@@ -165,7 +165,7 @@ User's Answer: {user's selected option or answer text}
 Continue from where you left off.
 ```
 
-### Example: Resuming git-rewriter
+### Example: Resuming historian
 
 **Original QUESTION result:**
 ```
@@ -176,7 +176,7 @@ Resume State:
   - Original branch: feature/user-profile
   - Clean branch: feature/user-profile-20251021-143022-clean
   - Base commit: abc123
-  - Master diff: /tmp/git-rewriter-master-20251021-143022.diff
+  - Master diff: /tmp/historian-master-20251021-143022.diff
   - Commit plan: [detailed plan]
   - Current commit: 3
   - Commits completed: 2
@@ -190,14 +190,14 @@ Option 2: Two commits by tier
 
 **Your resume prompt:**
 ```
-Resume the git-rewriter process.
+Resume the historian process.
 
 Resume State:
   - Step: 5 (Execute Plan)
   - Original branch: feature/user-profile
   - Clean branch: feature/user-profile-20251021-143022-clean
   - Base commit: abc123
-  - Master diff: /tmp/git-rewriter-master-20251021-143022.diff
+  - Master diff: /tmp/historian-master-20251021-143022.diff
   - Commit plan: [detailed plan]
   - Current commit: 3
   - Commits completed: 2
@@ -214,7 +214,7 @@ Continue from where you left off.
 RESULT: QUESTION
 Context: Creating commit "add user authentication system"
 Resume State:
-  - Master diff: /tmp/git-rewriter-master-20251021-143022.diff
+  - Master diff: /tmp/historian-master-20251021-143022.diff
   - Branch: feature/auth-20251021-143022-clean
   - Commit description: add user authentication system
 
@@ -230,7 +230,7 @@ Option 2: Two commits by tier
 Resume the commit-writer process.
 
 Resume State:
-  - Master diff: /tmp/git-rewriter-master-20251021-143022.diff
+  - Master diff: /tmp/historian-master-20251021-143022.diff
   - Branch: feature/auth-20251021-143022-clean
   - Commit description: add user authentication system
 
@@ -268,15 +268,15 @@ Questions bubble up through the agent hierarchy:
 ```
 commit-writer (orange)
     ↓ returns QUESTION
-git-rewriter (cyan)
+historian (cyan)
     ↓ wraps with own resume state, returns QUESTION
 command/skill (frontend)
     ↓ presents to user
 user
     ↓ provides answer
 command/skill
-    ↓ invokes git-rewriter with resume context + answer
-git-rewriter
+    ↓ invokes historian with resume context + answer
+historian
     ↓ invokes commit-writer with resume context + answer
 commit-writer
     ↓ continues execution
