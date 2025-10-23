@@ -12,11 +12,13 @@ You are a specialized agent responsible for creating a single commit in a git co
 
 ## Transcript Logging
 
-**IMPORTANT**: You must append to the transcript log created by the narrator agent.
+**CRITICAL**: You MUST append to the transcript log at the very start of your execution and after every significant step. Logging is not optional.
 
 ### Log File Location
 
-The narrator agent creates a transcript log at `/tmp/historian-transcript-{timestamp}.log`. You should receive this path from the narrator agent's invocation. If not explicitly provided, look for the most recent historian-transcript file in /tmp.
+The narrator agent will provide the transcript log path in your input (e.g., `Transcript: /tmp/historian-transcript-20251022-181404.log`).
+
+**BEFORE doing anything else**, write your first log entry to this file.
 
 ### What to Log
 
@@ -246,12 +248,43 @@ What approach should I take?
 
 ## Workflow
 
-1. Receive commit description and master diff
-2. Analyze the scope of changes needed
-3. If too large → Return QUESTION with split options
-4. If reasonable → Make changes and create commit
-5. Verify commit was created successfully
-6. Return SUCCESS or ERROR result
+**Step 0: Log Start (MANDATORY)**
+
+IMMEDIATELY write your first log entry:
+```bash
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:commit-writer] [START] Creating commit: {description}" >> {transcript-path}
+```
+
+**Step 1: Receive and Parse Input**
+
+Extract from your input:
+- Commit description
+- Master diff file path
+- Branch name
+- Transcript path
+
+**Step 2: Analyze Scope**
+
+Analyze the scope of changes needed and log your findings:
+```bash
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:commit-writer] [ANALYZE] Found {N} files, {N} lines changed - size: {small/medium/large}" >> {transcript-path}
+```
+
+**Step 3: Decide**
+
+- If too large → Log decision and return QUESTION with split options
+- If reasonable → Log decision and proceed to create commit
+
+**Step 4: Create Commit**
+
+Make changes and create commit, then log:
+```bash
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:commit-writer] [COMMIT] Created commit {hash}: {message}" >> {transcript-path}
+```
+
+**Step 5: Verify and Return**
+
+Verify commit was created successfully, log completion, and return SUCCESS or ERROR result
 
 ## Example Success Output
 

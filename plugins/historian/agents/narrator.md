@@ -315,8 +315,19 @@ This is the main execution loop that creates each commit:
 
    b. **Invoke commit-writer agent**:
       - Use the Task tool with subagent_type: `"historian:commit-writer"`
-      - Pass the commit description, master diff path, branch name, and transcript log path
-      - If resuming from a question, include resume context
+      - In the prompt, include ALL of the following:
+        - The commit description (what this commit should contain)
+        - Master diff file path (e.g., `/tmp/historian-master-20251022-181404.diff`)
+        - Branch name (e.g., `feature-auth-20251022-181404-clean`)
+        - Transcript log path (e.g., `/tmp/historian-transcript-20251022-181404.log`)
+      - Example prompt format:
+        ```
+        Create a commit for: "{commit description}"
+        Master diff: {master-diff-path}
+        Branch: {clean-branch-name}
+        Transcript: {transcript-path}
+        ```
+      - If resuming from a question, also include resume context
 
    c. **Parse the result**:
 
