@@ -8,8 +8,6 @@ This is my personal marketplace of Claude Code plugins.
 
 Rewrite git commit sequences to create clean, readable branches optimized for code review.
 
-**Version:** 0.2.0
-
 Takes messy commit history (WIP commits, fixes, typos) and rewrites it into logical, well-documented commits that tell a clear story.
 
 [View Plugin Documentation →](plugins/historian/README.md)
