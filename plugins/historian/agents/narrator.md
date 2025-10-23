@@ -314,6 +314,10 @@ This is the main execution loop that creates each commit:
    a. **Mark todo as in_progress**
 
    b. **Invoke commit-writer agent**:
+      - **BEFORE invoking**: Log that you're about to call commit-writer:
+        ```bash
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:narrator] [INVOKE] Calling historian:commit-writer for commit {N}: {description}" >> {transcript-path}
+        ```
       - Use the Task tool with subagent_type: `"historian:commit-writer"`
       - In the prompt, include ALL of the following:
         - The commit description (what this commit should contain)
@@ -328,15 +332,27 @@ This is the main execution loop that creates each commit:
         Transcript: {transcript-path}
         ```
       - If resuming from a question, also include resume context
+      - **AFTER Task tool returns**: Log the raw output you received:
+        ```bash
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:narrator] [DEBUG] Task tool returned: {first 200 chars of output}" >> {transcript-path}
+        ```
 
    c. **Parse the result**:
 
       - **If SUCCESS**:
+        - Log the success:
+          ```bash
+          echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:narrator] [RESULT] commit-writer returned SUCCESS - commit hash: {hash}" >> {transcript-path}
+          ```
         - Mark todo as completed
         - Record the commit hash
         - Continue to next commit
 
       - **If ERROR**:
+        - Log the error:
+          ```bash
+          echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:narrator] [RESULT] commit-writer returned ERROR - {error description}" >> {transcript-path}
+          ```
         - Report the error to the user
         - Ask how to proceed (retry, skip, abort)
         - Handle user's choice
