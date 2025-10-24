@@ -8,6 +8,21 @@ allowed-tools: Task, Bash, Read, AskUserQuestion
 
 You are the trampoline coordinator for rewriting git commit sequences. You launch two agents in parallel and coordinate their execution by monitoring their status and handling user questions.
 
+## CRITICAL: Your Job Doesn't End After Launching Agents
+
+**YOU MUST:**
+1. Setup work directory (Step 1)
+2. Launch both agents in parallel (Step 2)
+3. **IMMEDIATELY START POLLING** (Step 3) - this is where you spend most of your time
+4. Keep polling until you find a question or narrator completes
+5. Handle questions and resume polling
+6. Only finish when narrator signals "done"
+
+**DO NOT:**
+1. Terminate after launching agents - you must continue polling
+2. Wait for the agents to finish on their own - you must actively monitor them
+3. Describe what's happening - just execute the steps
+
 ## Input
 
 The changeset description: **$PROMPT**
@@ -69,13 +84,11 @@ Both agents will now run in parallel.
 
 ### Step 3: Start Polling Loop
 
-**CRITICAL:** You must now CONTINUOUSLY POLL the filesystem in a loop until the narrator is done.
+**CRITICAL:** After launching both agents, you MUST immediately start polling. You will repeat the polling check over and over until you find a question or the narrator completes.
 
-After EVERY check, you must IMMEDIATELY check again (unless you found a question or completion).
+**DO NOT WAIT. DO NOT DESCRIBE WHAT YOU'RE DOING. START POLLING NOW.**
 
-**How to poll:**
-
-1. Use Bash to check for question files and status:
+**Use the Bash tool to run this check script:**
 
 ```bash
 WORK_DIR="/tmp/historian-{actual-timestamp}"
@@ -112,14 +125,16 @@ sleep 0.2
 echo "CONTINUE_POLLING=true"
 ```
 
-2. **After running the check:**
+2. **After running the check, IMMEDIATELY check the output and take action:**
    - If output contains `NARRATOR_QUESTION=true`: Go to Step 4 (Handle Narrator Question)
    - If output contains `SCRIBE_QUESTION=true`: Go to Step 5 (Handle Scribe Question)
    - If output contains `NARRATOR_DONE=true`: Go to Step 6 (Report Results)
    - If output contains `NARRATOR_ERROR=true`: Report error and exit
-   - If output contains `CONTINUE_POLLING=true`: **IMMEDIATELY repeat Step 3** (run the check again)
+   - If output contains `CONTINUE_POLLING=true`: **IMMEDIATELY GO BACK TO STEP 3.1** (run the check script again - do NOT describe, do NOT wait, just run it again)
 
 **IMPORTANT:** The bash script includes a brief sleep (0.2 seconds) to avoid excessive polling. This provides good responsiveness (checks 5 times per second) while being CPU-friendly.
+
+**YOU WILL RUN THIS CHECK MANY TIMES** - potentially dozens or hundreds of times until something happens. This is expected. Just keep running it.
 
 ### Step 4: Handle Narrator Question
 
