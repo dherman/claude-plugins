@@ -6,54 +6,44 @@ allowed-tools: Task, Bash, Read, AskUserQuestion
 
 # Rewriting Git Commits Skill
 
-You are the trampoline coordinator for rewriting git commit sequences. You launch two agents in parallel and coordinate their execution by monitoring their status and handling user questions.
+You are the trampoline coordinator for rewriting git commit sequences. You repeatedly launch two agents in parallel (fork/join), check for questions after they finish, and restart them in a loop until completion.
 
-## CRITICAL: Your Job Doesn't End After Launching Agents
+## CRITICAL: Fork/Join Execution Model
 
-**YOU MUST:**
-1. Setup work directory (Step 1)
-2. Launch both agents in parallel (Step 2)
-3. **IMMEDIATELY START POLLING** (Step 3) - this is where you spend most of your time
-4. Keep polling until you find a question or narrator completes
-5. Handle questions and resume polling
-6. Only finish when narrator signals "done"
+The Task tool uses **fork/join semantics**:
+- When you call Task twice in one message, both agents run in parallel
+- **You block until BOTH agents exit**
+- Then you regain control and can check for questions
 
-**DO NOT:**
-1. Terminate after launching agents - you must continue polling
-2. Wait for the agents to finish on their own - you must actively monitor them
-3. Describe what's happening - just execute the steps
+This means:
+1. You launch narrator + scribe
+2. **WAIT** for both to exit (they do one unit of work and exit)
+3. Check if narrator wrote a question file
+4. If question: present to user, write answer
+5. **RESTART** both agents (goto step 1)
+6. Repeat until narrator signals "done"
 
 ## Input
 
 The changeset description: **$PROMPT**
 
-## Architecture Overview
+## Your Task - Execute This Loop
 
-This skill uses a **trampoline pattern** with file-based IPC:
+### Step 1: One-Time Setup
 
-1. Create a work directory in `/tmp/historian-{timestamp}/`
-2. Launch **narrator** and **scribe** agents in parallel using Task tool
-3. **Continuously poll** both agents' status files
-4. When either agent writes a question file, ask the user
-5. Write the user's answer back to the agent's answer file
-6. **Resume polling** until agents complete
-7. Report final results to user
-
-See [docs/ipc-protocol.md](../../docs/ipc-protocol.md) for the complete IPC protocol.
-
-## Your Task - Execute These Steps
-
-### Step 1: Setup Work Directory
-
-Use Bash to create the IPC infrastructure. Store the WORK_DIR value for use in all subsequent steps.
+**DO THIS ONCE at the beginning:**
 
 ```bash
+# Generate timestamp
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 WORK_DIR="/tmp/historian-$TIMESTAMP"
+
+# Create directory structure
 mkdir -p "$WORK_DIR/narrator"
 mkdir -p "$WORK_DIR/scribe/inbox"
 mkdir -p "$WORK_DIR/scribe/outbox"
 
+# Initialize state file
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 cat > "$WORK_DIR/state.json" <<EOF
 {
@@ -66,233 +56,228 @@ EOF
 echo "Created work directory: $WORK_DIR"
 ```
 
-### Step 2: Launch Both Agents in Parallel
+**Save $WORK_DIR** - you'll need it in every iteration.
 
-**CRITICAL:** Make TWO Task tool calls in a SINGLE message to run agents in parallel.
+### Step 2: The Main Loop
 
-Call Task tool with:
-- `subagent_type: "historian:narrator"`
-- `description: "Narrate git commits"`
-- `prompt: "Work directory: {WORK_DIR from step 1}\nChangeset: {$PROMPT}"`
+**YOU MUST REPEAT THIS LOOP until narrator signals "done":**
 
-Call Task tool with:
-- `subagent_type: "historian:scribe"`
-- `description: "Write commits"`
-- `prompt: "Work directory: {WORK_DIR from step 1}"`
+#### 2.1: Launch Both Agents (Fork/Join)
 
-Both agents will now run in parallel.
+**Make TWO Task calls in a SINGLE message** to run agents in parallel:
 
-### Step 3: Start Polling Loop
+```
+Task(
+  subagent_type: "historian:narrator",
+  description: "Narrator iteration",
+  prompt: "Work directory: $WORK_DIR
+Changeset: $PROMPT"
+)
 
-**CRITICAL:** After launching both agents, you MUST immediately start polling. You will repeat the polling check over and over until you find a question or the narrator completes.
+Task(
+  subagent_type: "historian:scribe",
+  description: "Scribe iteration",
+  prompt: "Work directory: $WORK_DIR"
+)
+```
 
-**DO NOT WAIT. DO NOT DESCRIBE WHAT YOU'RE DOING. START POLLING NOW.**
+**Both agents will:**
+- Load their saved state
+- Do one unit of work
+- Save updated state
+- Exit
 
-**Use the Bash tool to run this check script:**
+**You will block here until BOTH agents exit.**
+
+#### 2.2: Check for Questions
+
+After agents finish, check if narrator wrote a question:
 
 ```bash
 WORK_DIR="/tmp/historian-{actual-timestamp}"
 
-# Check for narrator question
 if [ -f "$WORK_DIR/narrator/question" ]; then
-  echo "NARRATOR_QUESTION=true"
+  echo "QUESTION_FOUND=true"
   cat "$WORK_DIR/narrator/question"
-  exit 0
+else
+  echo "NO_QUESTION=true"
 fi
+```
 
-# Check for scribe question
-if [ -f "$WORK_DIR/scribe/question" ]; then
-  echo "SCRIBE_QUESTION=true"
-  cat "$WORK_DIR/scribe/question"
-  exit 0
-fi
+#### 2.3: Handle Question (if found)
 
-# Check if narrator is done
+If output contains `QUESTION_FOUND=true`:
+
+1. Parse the question file contents:
+   - Extract `CONTEXT`, `PLAN`, `OPTION_1`, `OPTION_2`, `OPTION_3`
+   - Handle heredoc format for PLAN
+
+2. Use AskUserQuestion to present:
+   - Show CONTEXT
+   - Show PLAN (formatted nicely)
+   - Show numbered options
+   - Get user's choice (1, 2, or 3)
+
+3. Write answer file:
+   ```bash
+   WORK_DIR="/tmp/historian-{actual-timestamp}"
+   # Map user's choice to "Option N"
+   echo "ANSWER=Option 1" > "$WORK_DIR/narrator/answer"
+   ```
+
+#### 2.4: Check for Completion
+
+Check if narrator is done:
+
+```bash
+WORK_DIR="/tmp/historian-{actual-timestamp}"
+
 if [ -f "$WORK_DIR/narrator/status" ]; then
-  STATUS=$(cat "$WORK_DIR/narrator/status")
-  if [ "$STATUS" = "done" ]; then
-    echo "NARRATOR_DONE=true"
-    exit 0
-  fi
-  if [ "$STATUS" = "error" ]; then
-    echo "NARRATOR_ERROR=true"
-    exit 0
-  fi
+  cat "$WORK_DIR/narrator/status"
 fi
-
-# Nothing found, continue polling
-sleep 0.2
-echo "CONTINUE_POLLING=true"
 ```
 
-2. **After running the check, IMMEDIATELY check the output and take action:**
-   - If output contains `NARRATOR_QUESTION=true`: Go to Step 4 (Handle Narrator Question)
-   - If output contains `SCRIBE_QUESTION=true`: Go to Step 5 (Handle Scribe Question)
-   - If output contains `NARRATOR_DONE=true`: Go to Step 6 (Report Results)
-   - If output contains `NARRATOR_ERROR=true`: Report error and exit
-   - If output contains `CONTINUE_POLLING=true`: **IMMEDIATELY GO BACK TO STEP 3.1** (run the check script again - do NOT describe, do NOT wait, just run it again)
+If status is "done", go to Step 3 (Report Results).
 
-**IMPORTANT:** The bash script includes a brief sleep (0.2 seconds) to avoid excessive polling. This provides good responsiveness (checks 5 times per second) while being CPU-friendly.
+If status is "error", report error and exit.
 
-**YOU WILL RUN THIS CHECK MANY TIMES** - potentially dozens or hundreds of times until something happens. This is expected. Just keep running it.
+Otherwise, **GO BACK TO STEP 2.1** - restart both agents.
 
-### Step 4: Handle Narrator Question
+### Step 3: Report Results (When Done)
 
-When you detect a narrator question:
+When narrator status is "done":
 
-1. The question file contents were printed by the check script. Parse them to extract:
-   - `CONTEXT` - description of the question
-   - `PLAN` - the commit plan (may be multi-line)
-   - `OPTION_1`, `OPTION_2`, `OPTION_3` - the choices
+1. **Read final state:**
+   ```bash
+   WORK_DIR="/tmp/historian-{actual-timestamp}"
+   cat "$WORK_DIR/state.json"
+   ```
 
-2. Use AskUserQuestion to present the question:
-   - Show the CONTEXT
-   - Show the PLAN if present (formatted nicely)
-   - Show the numbered options
-   - Ask user to choose 1, 2, or 3
-
-3. Map the user's numeric choice to the option text:
-   - 1 → "Option 1"
-   - 2 → "Option 2"
-   - 3 → "Option 3"
-
-4. Write the answer file and remove the question file:
-
-```bash
-WORK_DIR="/tmp/historian-{actual-timestamp}"
-echo "ANSWER=Option 1" > "$WORK_DIR/narrator/answer"
-rm "$WORK_DIR/narrator/question"
-```
-
-5. **IMMEDIATELY return to Step 3** to resume polling
-
-### Step 5: Handle Scribe Question
-
-When you detect a scribe question:
-
-1. Parse the question file contents to extract CONTEXT and options
-
-2. Use AskUserQuestion to present the question
-
-3. Map user's choice to "Option N" format
-
-4. Write answer and remove question:
-
-```bash
-WORK_DIR="/tmp/historian-{actual-timestamp}"
-echo "ANSWER=Option 1" > "$WORK_DIR/scribe/answer"
-rm "$WORK_DIR/scribe/question"
-```
-
-5. **IMMEDIATELY return to Step 3** to resume polling
-
-### Step 6: Report Results
-
-When narrator is done:
-
-1. Wait for scribe to finish:
-
-```bash
-WORK_DIR="/tmp/historian-{actual-timestamp}"
-while [ -f "$WORK_DIR/scribe/status" ] && [ "$(cat "$WORK_DIR/scribe/status")" != "done" ]; do
-  sleep 1
-done
-```
-
-2. Read the final state:
-
-```bash
-WORK_DIR="/tmp/historian-{actual-timestamp}"
-cat "$WORK_DIR/state.json"
-```
-
-3. Use Read tool to read the state.json file and extract:
+2. **Use Read tool** to read `$WORK_DIR/state.json` and extract:
    - `original_branch`
    - `clean_branch`
    - `commits_created`
 
-4. Report success to the user:
+3. **Report success to user:**
+   ```
+   ✅ Successfully created clean branch!
 
-```
-✅ Successfully created clean branch!
+   Original branch: {original_branch}
+   Clean branch: {clean_branch}
+   Commits created: {commits_created}
 
-Original branch: {original_branch}
-Clean branch: {clean_branch}
-Commits created: {commits_created}
+   To review the commits:
+     git log {clean_branch}
 
-To review the commits:
-  git log {clean_branch}
+   To switch to the clean branch:
+     git checkout {clean_branch}
 
-To switch to the clean branch:
-  git checkout {clean_branch}
-
-Transcript saved to: {WORK_DIR}/transcript.log
-```
+   Transcript saved to: {WORK_DIR}/transcript.log
+   ```
 
 ## Critical Implementation Notes
 
-### Continuous Polling
+### The Fork/Join Loop
 
-You MUST continuously poll without waiting. The loop looks like:
+Your execution looks like:
 
-1. Run check script
-2. If CONTINUE_POLLING → immediately run check script again
-3. If question found → handle it, then immediately run check script again
-4. If done → report results
-
-Do NOT add delays between checks. Do NOT stop polling until narrator is done.
-
-### Parallel Agent Launch
-
-Launch both agents in ONE message with TWO Task calls. This makes them run in parallel.
-
-### Question File Format
-
-Question files use simple key=value format:
 ```
-CONTEXT=Description here
-OPTION_1=First choice
-OPTION_2=Second choice
-OPTION_3=Third choice
+Iteration 1:
+  - Launch narrator (init phase) + scribe (idle) → both exit
+  - No question
+  - Restart
+
+Iteration 2:
+  - Launch narrator (planning phase) + scribe (idle) → both exit
+  - Question found!
+  - Ask user
+  - Write answer
+  - Restart
+
+Iteration 3:
+  - Launch narrator (waiting_for_user) + scribe (idle) → both exit
+  - No question (narrator processed answer)
+  - Restart
+
+Iteration 4:
+  - Launch narrator (executing, sends request 1) + scribe (idle) → both exit
+  - No question
+  - Restart
+
+Iteration 5:
+  - Launch narrator (executing, waiting for result) + scribe (processing request 1) → both exit
+  - No question
+  - Restart
+
+Iteration 6:
+  - Launch narrator (executing, reads result, sends request 2) + scribe (idle) → both exit
+  - No question
+  - Restart
+
+... many iterations ...
+
+Final iteration:
+  - Launch narrator (validating, marks done) + scribe (idle) → both exit
+  - Status is "done"
+  - Report results
 ```
 
-For multiline values (like PLAN), they use heredoc format:
-```
-PLAN<<EOF
-Line 1
-Line 2
-EOF
-```
+**You will do MANY iterations** (potentially 50-100+). This is expected and correct.
 
-Parse these carefully when presenting to the user.
+### Why This Works
 
-### Error Handling
+- **Agents are stateful** - they resume from where they left off
+- **Agents do incremental work** - one small task per invocation
+- **You control the loop** - you can check for questions between iterations
+- **Fork/join semantics** - both agents run in parallel, you wait for both
 
-If narrator status is "error":
-1. Read transcript.log with tail:
-   ```bash
-   tail -20 "$WORK_DIR/transcript.log"
-   ```
-2. Show the error to the user
-3. Exit
+### No Polling Needed
+
+You don't poll in a tight loop. Instead:
+1. Launch agents → they do work → they exit
+2. You regain control
+3. Check for question
+4. Launch again
+
+The "loop" is you repeatedly launching the agents, not bash polling.
+
+### State Files
+
+Agents maintain their own state:
+- `narrator/state.json` - narrator's progress
+- `scribe/state.json` - scribe's progress
+- `state.json` - shared final results
+
+You don't need to manage their state - just keep restarting them.
 
 ## Example Execution
 
-1. Setup work dir → `/tmp/historian-20251023-140530/`
-2. Launch narrator + scribe in parallel (single message, 2 Task calls)
-3. Poll: CONTINUE_POLLING → poll again
-4. Poll: CONTINUE_POLLING → poll again
-5. Poll: NARRATOR_QUESTION found
-6. Ask user about commit plan → user chooses "1"
+```
+1. Setup work dir: /tmp/historian-20251024-140530/
+2. Iteration 1: Launch both → narrator inits, scribe inits → both exit
+3. Check: no question, not done
+4. Iteration 2: Launch both → narrator plans, scribe waits → both exit
+5. Check: question found!
+6. Ask user → user chooses "1"
 7. Write answer file
-8. Poll: CONTINUE_POLLING → poll again
-9. Poll: CONTINUE_POLLING → poll again
-10. Poll: SCRIBE_QUESTION found (commit too large)
-11. Ask user how to split → user chooses "1"
-12. Write answer file
-13. Poll: CONTINUE_POLLING → poll again (repeat many times)
-14. Poll: NARRATOR_DONE found
-15. Wait for scribe to finish
-16. Report results
+8. Iteration 3: Launch both → narrator processes answer, scribe waits → both exit
+9. Check: no question, not done
+10. Iteration 4: Launch both → narrator sends req 1, scribe waits → both exit
+11. Check: no question, not done
+12. Iteration 5: Launch both → narrator waits, scribe processes req 1 → both exit
+13. Check: no question, not done
+14. Iteration 6: Launch both → narrator sends req 2, scribe waits → both exit
+... repeat for all 15 commits ...
+50. Iteration 47: Launch both → narrator validates, scribe waits → both exit
+51. Check: status is "done"
+52. Report results to user
+```
 
-The key is **continuous polling** - you keep checking until done.
+## Expected Behavior
+
+- **Many short-lived agent invocations** instead of two long-running agents
+- **Quick feedback loop** - each iteration takes seconds
+- **User questions handled** between iterations
+- **Clean state management** via files
+
+This fork/join pattern allows the skill to maintain control and handle user interaction while coordinating the parallel agents.

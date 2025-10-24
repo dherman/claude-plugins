@@ -17,7 +17,7 @@ The plugin takes your current branch (with messy commits) and creates a new "cle
 
 ## Architecture
 
-The plugin uses a **trampoline pattern** with **file-based IPC** to coordinate two parallel long-running agents. This minimizes context overhead by keeping agent work isolated.
+The plugin uses a **fork/join trampoline pattern** with **stateful resumable agents** and **file-based IPC**. This minimizes context overhead while allowing the skill to handle user interaction.
 
 ### Components
 
@@ -34,28 +34,35 @@ A lightweight wrapper that invokes the "Rewriting Git Commits" skill.
 
 #### 2. Skill: Rewriting Git Commits
 
-The trampoline coordinator that:
+The fork/join trampoline coordinator that:
 - Sets up a work directory in `/tmp/historian-{timestamp}/`
-- Launches narrator and scribe agents in parallel
-- Monitors their status via files (polling loop)
-- Handles user questions from either agent
+- **Repeatedly launches** narrator and scribe agents in parallel
+- **Waits** for both agents to exit (fork/join semantics)
+- Checks for user questions after each iteration
+- Handles user questions and writes answers
+- Restarts agents in a loop until completion
 - Reports final results
 
-This skill runs as a long-lived agent that can execute bash polling loops to monitor the parallel agents.
+The skill launches agents potentially 50-100+ times, with each agent doing incremental work and exiting.
 
 **Location:** `skills/rewriting-git-commits/SKILL.md`
 
 #### 3. Agent: `narrator` (cyan)
 
-The main orchestrator that runs in parallel with scribe. Workflow:
+A **stateful, resumable agent** that orchestrates the rewrite process. Each invocation:
 
-1. **Validate Readiness** - Ensures git working tree is clean
-2. **Prepare Materials** - Creates clean branch and master diff
-3. **Develop Story** - Analyzes changes and creates narrative
-4. **Create Commit Plan** - Breaks story into discrete commits
-5. **Ask User for Approval** - Presents plan via question file
-6. **Execute Plan** - Sends requests to scribe via IPC
-7. **Validate Results** - Verifies clean branch matches original
+1. **Loads state** from `narrator/state.json`
+2. **Does one unit of work** based on current phase
+3. **Saves updated state** back to disk
+4. **Exits** - skill will restart it
+
+**State Machine Phases:**
+- `init` - Validate git, create clean branch and master diff
+- `planning` - Analyze changes, create commit plan, write question file
+- `waiting_for_user` - Check for answer file, process response
+- `executing` - Send commit requests to scribe, wait for results
+- `validating` - Compare branches, mark done
+- `done` - Finished successfully
 
 Communicates via files in `narrator/` directory.
 
@@ -63,18 +70,24 @@ Communicates via files in `narrator/` directory.
 
 #### 4. Agent: `scribe` (orange)
 
-A specialized worker that runs in parallel with narrator. Workflow:
+A **stateful, resumable agent** that creates individual commits. Each invocation:
 
-- Waits for requests from narrator in `scribe/inbox/`
-- Analyzes commit size and complexity
-- Creates single commits for reasonable size
-- Asks user (via question file) how to split large commits
-- Writes results to `scribe/outbox/`
-- Shuts down when narrator signals done
+1. **Loads state** from `scribe/state.json`
+2. **Does one unit of work** based on current phase
+3. **Saves updated state** back to disk
+4. **Exits** - skill will restart it
+
+**State Machine Phases:**
+- `idle` - Check for narrator done or new request in inbox
+- `processing` - Read master diff, extract changes, create commit, write result
+- `waiting_for_user` - (Future) Ask how to split large commits
+- `done` - Narrator finished, shut down
+
+Communicates via files in `scribe/` directory.
 
 **Location:** `agents/scribe.md`
 
-### File-Based IPC
+### File-Based IPC and State Management
 
 Agents coordinate through files in `/tmp/historian-{timestamp}/`:
 
@@ -82,87 +95,68 @@ Agents coordinate through files in `/tmp/historian-{timestamp}/`:
 /tmp/historian-{timestamp}/
   ├── transcript.log              # Shared log
   ├── master.diff                 # All changes
-  ├── state.json                  # Shared state
+  ├── state.json                  # Shared final results
   ├── narrator/
+  │   ├── state.json              # Narrator's resumable state
   │   ├── status                  # "planning" | "executing" | "done" | "error"
   │   ├── question                # Questions for user
   │   └── answer                  # User answers
   └── scribe/
-      ├── status                  # "idle" | "working" | "done"
+      ├── state.json              # Scribe's resumable state
+      ├── status                  # "idle" | "processing" | "done"
       ├── question                # Questions for user
       ├── answer                  # User answers
       ├── inbox/request           # Requests from narrator
       └── outbox/result           # Results to narrator
 ```
 
+**Key principle:** Agents save their state before exiting and resume from that state when restarted.
+
 See [docs/ipc-protocol.md](docs/ipc-protocol.md) for complete details.
 
 ## How It Works
 
-### Basic Flow
+### Fork/Join Iteration Loop
 
-1. **You invoke:** `/narrate "Description of your changeset"`
+The skill uses fork/join semantics to repeatedly launch and coordinate the agents:
 
-2. **Command invokes skill:**
-   - Delegates to "Rewriting Git Commits" skill
+**Iteration 1-2: Setup and Planning**
+1. **Skill:** Setup work directory
+2. **Skill:** Launch narrator + scribe (both exit quickly)
+3. **Narrator:** Initialize, create clean branch, generate master diff → save state, exit
+4. **Scribe:** Initialize → save state, exit
+5. **Skill:** Check for questions (none), restart agents
+6. **Narrator:** Load state, analyze changes, create commit plan, write question file → save state, exit
+7. **Scribe:** Load state, check for requests (none) → exit
+8. **Skill:** Check for questions → **found one!**
 
-3. **Skill sets up IPC:**
-   - Creates work directory `/tmp/historian-{timestamp}/`
-   - Initializes file structure for communication
+**User Interaction:**
+9. **Skill:** Present commit plan to you via AskUserQuestion
+10. **You:** Choose "Proceed with this plan"
+11. **Skill:** Write answer file, restart agents
 
-4. **Skill launches agents in parallel:**
-   - Makes two Task calls in single message
-   - Narrator agent starts planning
-   - Scribe agent starts waiting for requests
+**Iteration 3-N: Executing Commits**
+12. **Narrator:** Load state, check for answer → found it! Advance to executing phase, send commit request #1 → save state, exit
+13. **Scribe:** Load state, check for request → found one! Create commit #1, write result → save state, exit
+14. **Skill:** Check for questions (none), restart agents
+15. **Narrator:** Load state, read result for commit #1, send request #2 → save state, exit
+16. **Scribe:** Load state, check for request → found one! Create commit #2 → save state, exit
+17. Repeat for all commits (potentially 50-100 iterations)
 
-5. **Skill enters polling loop:**
-   - Bash while loop checks for question files and status
-   - Sleeps 1 second between checks
-
-6. **Narrator validates and prepares:**
-   - Checks git working tree is clean
-   - Creates clean branch: `{your-branch}-{timestamp}-clean`
-   - Generates master diff of all changes
-
-7. **Narrator creates commit plan:**
-   - Analyzes changes and develops a story
-   - Identifies key themes and logical layers
-   - Creates detailed commit plan
-   - Breaks into discrete, logical commits
-
-8. **User reviews and approves:**
-   - Narrator writes question file
-   - Skill detects question in polling loop
-   - Skill presents plan to you via AskUserQuestion
-   - You approve or cancel
-   - Skill writes answer file
-   - Skill resumes polling loop
-
-9. **Execution loop:**
-   - Narrator sends commit requests to scribe via `inbox/request` files
-   - Scribe creates each commit
-   - Scribe writes results to `outbox/result` files
-   - If commit is too large, scribe asks user how to split
-   - Skill handles all user questions via polling loop
-
-10. **Validation:**
-    - Narrator compares clean branch to original
-    - Ensures contents are identical
-    - Writes "done" status
-
-11. **Skill reports results:**
-    - Detects "done" status in polling loop
-    - Waits for both agents to shut down cleanly
-    - Reports clean branch name and commit count
-    - Shows transcript location for debugging
+**Final Iterations: Validation**
+N. **Narrator:** Load state, all commits done, validate branches match → mark "done", exit
+N+1. **Scribe:** Load state, narrator is done → mark "done", exit
+N+2. **Skill:** Check status → narrator done! Read final state and report results
 
 ### Advantages of This Architecture
 
-1. **Minimal Context Overhead** - Agents run in parallel, isolated from your main context
-2. **No Agent-to-Agent Calls** - Works around Claude Code limitation
-3. **Direct User Communication** - Both agents can ask questions without propagation
-4. **Easy Debugging** - All IPC files visible for inspection
-5. **Resumable** - User questions don't block either agent
+1. **Minimal Context Overhead** - Agents run briefly, isolated from main context
+2. **Skill Controls Flow** - Can handle user questions between agent invocations
+3. **Stateful Resume** - Agents pick up exactly where they left off
+4. **Fork/Join Parallelism** - Both agents can make progress simultaneously
+5. **Direct User Communication** - Skill can present questions from either agent
+6. **Easy Debugging** - All state and IPC files visible for inspection
+7. **Incremental Progress** - Each iteration moves the process forward
 
 ### Example: Handling Large Commits
 
