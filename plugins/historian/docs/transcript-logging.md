@@ -9,10 +9,10 @@ When the historian runs, it creates a transcript log file in `/tmp` that records
 ## Log File Location
 
 ```
-/tmp/historian-transcript-{timestamp}.log
+/tmp/historian-{timestamp}/transcript.log
 ```
 
-The timestamp format is `YYYYMMDD-HHMMSS`, matching the timestamp used for the clean branch name and master diff file.
+The timestamp format is `YYYYMMDD-HHMMSS`, matching the timestamp used for the work directory, clean branch name, and master diff file.
 
 ## Log Entry Format
 
@@ -25,119 +25,126 @@ Each log entry follows this format:
 ### Event Types
 
 **Narrator Agent Events:**
-- `START` - Agent begins execution (initial or resumed)
+- `START` - Agent begins execution
 - `STEP` - Transition between workflow steps
-- `INVOKE` - Before calling scribe subagent
-- `RESULT` - After receiving response from scribe
-- `QUESTION` - When returning QUESTION to caller
+- `REQUEST` - Before sending request to scribe
+- `RESULT` - After receiving result from scribe
+- `USER_QUESTION` - When asking user a question via AskUserQuestion
+- `USER_ANSWER` - After receiving user's answer
 - `ERROR` - When encountering errors
-- `COMPLETE` - When returning final SUCCESS/ERROR
+- `COMPLETE` - When marking done/error status
 
 **Scribe Agent Events:**
 - `START` - Agent begins execution
+- `POLLING` - Waiting for requests (logged periodically)
+- `REQUEST_RECEIVED` - New request from narrator
 - `ANALYZE` - Analysis results about the commit
 - `DECIDE` - Decision point (split or proceed)
 - `COMMIT` - Successfully created a commit
-- `QUESTION` - When returning QUESTION for guidance
+- `USER_QUESTION` - When asking user how to split via AskUserQuestion
+- `USER_ANSWER` - After receiving user's answer
 - `ERROR` - When encountering errors
-- `COMPLETE` - When returning final SUCCESS/ERROR
+- `RESULT_SENT` - After writing result file
+- `COMPLETE` - When exiting (narrator marked done)
 
 ## Example Transcript
 
-Here's what a typical transcript looks like for a successful run with a question:
+Here's what a typical transcript looks like for a successful run where the scribe asks a splitting question:
 
 ```
-[2025-10-22 15:08:14] [AGENT:narrator] [START] Initial invocation with changeset: Add user authentication
-[2025-10-22 15:08:15] [AGENT:narrator] [STEP] Step 1: Validate Readiness - working tree clean
-[2025-10-22 15:08:16] [AGENT:narrator] [STEP] Step 2: Prepare Materials - created branch feature-auth-20251022-150814-clean
-[2025-10-22 15:08:17] [AGENT:narrator] [STEP] Step 3: Develop the Story - identified 3 main themes
-[2025-10-22 15:08:20] [AGENT:narrator] [STEP] Step 4: Commit plan approved by user - 5 commits planned
-[2025-10-22 15:08:21] [AGENT:narrator] [STEP] Step 5: Execute Plan - starting commit creation
-[2025-10-22 15:08:21] [AGENT:narrator] [INVOKE] Calling historian:scribe for commit 1: Add database schema
-[2025-10-22 15:08:21] [AGENT:scribe] [START] Creating commit: Add database schema
-[2025-10-22 15:08:25] [AGENT:scribe] [ANALYZE] Found 3 files, 45 lines changed - size: small
-[2025-10-22 15:08:26] [AGENT:scribe] [DECIDE] Commit size acceptable, proceeding
-[2025-10-22 15:08:34] [AGENT:scribe] [COMMIT] Created commit abc123: Add database schema
-[2025-10-22 15:08:35] [AGENT:scribe] [COMPLETE] Returning SUCCESS
-[2025-10-22 15:08:35] [AGENT:narrator] [RESULT] scribe returned SUCCESS - commit hash: abc123
-[2025-10-22 15:08:36] [AGENT:narrator] [INVOKE] Calling historian:scribe for commit 2: Add auth endpoints
-[2025-10-22 15:08:56] [AGENT:scribe] [START] Creating commit: Add auth endpoints
-[2025-10-22 15:09:00] [AGENT:scribe] [ANALYZE] Found 18 files, 320 lines changed - size: large
-[2025-10-22 15:09:01] [AGENT:scribe] [DECIDE] Commit too large, requesting split guidance
-[2025-10-22 15:09:02] [AGENT:scribe] [QUESTION] Returning QUESTION with 3 split options
-[2025-10-22 15:09:02] [AGENT:narrator] [RESULT] scribe returned QUESTION - commit too large
-[2025-10-22 15:09:03] [AGENT:narrator] [QUESTION] Returning QUESTION to caller - waiting for user decision
-[2025-10-22 15:12:45] [AGENT:narrator] [START] Resumed with user answer: Option 1
-[2025-10-22 15:12:46] [AGENT:narrator] [INVOKE] Re-calling historian:scribe for commit 2 with user answer
-[2025-10-22 15:12:46] [AGENT:scribe] [START] Resumed - splitting commit into 3 parts
-[2025-10-22 15:13:00] [AGENT:scribe] [COMMIT] Created commit def456: Add auth models
-[2025-10-22 15:13:10] [AGENT:scribe] [COMMIT] Created commit ghi789: Add auth controllers
-[2025-10-22 15:13:20] [AGENT:scribe] [COMMIT] Created commit jkl012: Add auth routes
-[2025-10-22 15:13:20] [AGENT:scribe] [COMPLETE] Returning SUCCESS - 3 commits created
-[2025-10-22 15:13:21] [AGENT:narrator] [RESULT] scribe returned SUCCESS - 3 commits created
-[2025-10-22 15:13:22] [AGENT:narrator] [INVOKE] Calling historian:scribe for commit 3: Add tests
-[2025-10-22 15:13:22] [AGENT:scribe] [START] Creating commit: Add tests
-[2025-10-22 15:13:24] [AGENT:scribe] [ANALYZE] Found 5 files, 120 lines changed - size: medium
-[2025-10-22 15:13:25] [AGENT:scribe] [DECIDE] Commit size acceptable, proceeding
-[2025-10-22 15:13:30] [AGENT:scribe] [COMMIT] Created commit mno345: Add tests
-[2025-10-22 15:13:31] [AGENT:scribe] [COMPLETE] Returning SUCCESS
-[2025-10-22 15:13:31] [AGENT:narrator] [RESULT] scribe returned SUCCESS - commit hash: mno345
-[2025-10-22 15:13:32] [AGENT:narrator] [STEP] Step 6: Validate Results - comparing branches
-[2025-10-22 15:13:33] [AGENT:narrator] [STEP] Step 6: Validation successful - branches match
-[2025-10-22 15:13:35] [AGENT:narrator] [COMPLETE] Returning SUCCESS - 7 commits total
+[2025-10-24 15:08:14] [AGENT:narrator] [START] Initial execution with changeset: Add user authentication
+[2025-10-24 15:08:15] [AGENT:narrator] [STEP] Step 1: Validate Readiness - working tree clean
+[2025-10-24 15:08:16] [AGENT:narrator] [STEP] Step 2: Prepare Materials - created branch feature-auth-20251024-150814-clean
+[2025-10-24 15:08:17] [AGENT:narrator] [STEP] Step 3: Develop the Story - identified 3 main themes
+[2025-10-24 15:08:18] [AGENT:narrator] [STEP] Step 4: Present the Plan - 5 commits planned
+[2025-10-24 15:08:19] [AGENT:narrator] [USER_QUESTION] Asking user to approve commit plan
+[2025-10-24 15:08:45] [AGENT:narrator] [USER_ANSWER] User approved: Proceed with this plan
+[2025-10-24 15:08:46] [AGENT:narrator] [STEP] Step 5: Execute Plan - starting commit creation
+[2025-10-24 15:08:46] [AGENT:narrator] [REQUEST] Sending request to scribe for commit 1: Add database schema
+[2025-10-24 15:08:46] [AGENT:scribe] [START] Beginning polling loop
+[2025-10-24 15:08:47] [AGENT:scribe] [REQUEST_RECEIVED] Commit 1: Add database schema
+[2025-10-24 15:08:47] [AGENT:scribe] [ANALYZE] Found 3 files, 45 lines changed - size: small
+[2025-10-24 15:08:48] [AGENT:scribe] [DECIDE] Commit size acceptable, proceeding
+[2025-10-24 15:08:54] [AGENT:scribe] [COMMIT] Created commit abc123: Add database schema
+[2025-10-24 15:08:55] [AGENT:scribe] [RESULT_SENT] SUCCESS result written to outbox
+[2025-10-24 15:08:55] [AGENT:narrator] [RESULT] Received SUCCESS from scribe - commit hash: abc123
+[2025-10-24 15:08:56] [AGENT:narrator] [REQUEST] Sending request to scribe for commit 2: Add auth endpoints
+[2025-10-24 15:08:56] [AGENT:scribe] [REQUEST_RECEIVED] Commit 2: Add auth endpoints
+[2025-10-24 15:09:00] [AGENT:scribe] [ANALYZE] Found 18 files, 320 lines changed - size: large
+[2025-10-24 15:09:01] [AGENT:scribe] [DECIDE] Commit too large, asking user how to split
+[2025-10-24 15:09:02] [AGENT:scribe] [USER_QUESTION] Asking user to choose split strategy (3 options)
+[2025-10-24 15:12:45] [AGENT:scribe] [USER_ANSWER] User chose: Option 1 - Split into models, controllers, routes
+[2025-10-24 15:12:46] [AGENT:scribe] [COMMIT] Created commit def456: Add auth models
+[2025-10-24 15:12:56] [AGENT:scribe] [COMMIT] Created commit ghi789: Add auth controllers
+[2025-10-24 15:13:06] [AGENT:scribe] [COMMIT] Created commit jkl012: Add auth routes
+[2025-10-24 15:13:07] [AGENT:scribe] [RESULT_SENT] SUCCESS result written - 3 commits created
+[2025-10-24 15:13:07] [AGENT:narrator] [RESULT] Received SUCCESS from scribe - 3 commits created
+[2025-10-24 15:13:08] [AGENT:narrator] [REQUEST] Sending request to scribe for commit 3: Add tests
+[2025-10-24 15:13:08] [AGENT:scribe] [REQUEST_RECEIVED] Commit 3: Add tests
+[2025-10-24 15:13:10] [AGENT:scribe] [ANALYZE] Found 5 files, 120 lines changed - size: medium
+[2025-10-24 15:13:11] [AGENT:scribe] [DECIDE] Commit size acceptable, proceeding
+[2025-10-24 15:13:16] [AGENT:scribe] [COMMIT] Created commit mno345: Add tests
+[2025-10-24 15:13:17] [AGENT:scribe] [RESULT_SENT] SUCCESS result written to outbox
+[2025-10-24 15:13:17] [AGENT:narrator] [RESULT] Received SUCCESS from scribe - commit hash: mno345
+[2025-10-24 15:13:18] [AGENT:narrator] [STEP] Step 6: Validate Results - comparing branches
+[2025-10-24 15:13:19] [AGENT:narrator] [STEP] Step 6: Validation successful - branches match
+[2025-10-24 15:13:20] [AGENT:narrator] [COMPLETE] Marked status as done - 7 commits total
+[2025-10-24 15:13:20] [AGENT:scribe] [COMPLETE] Narrator marked done, exiting polling loop
 ```
 
 ## How It Works
 
-### 1. Narrator Agent Creates Log
+### 1. Skill Creates Work Directory and Log
 
-In Step 1 (Validate Readiness), the narrator agent:
+In Step 1 (Setup Work Directory), the skill:
 1. Generates a timestamp
-2. Creates the log file path: `/tmp/historian-transcript-{timestamp}.log`
-3. Writes the first entry: `[timestamp] [AGENT:narrator] [START] ...`
+2. Creates the work directory: `/tmp/historian-{timestamp}/`
+3. Creates the log file: `/tmp/historian-{timestamp}/transcript.log`
 
-### 2. Narrator Agent Passes Log Path
+### 2. Skill Passes Work Directory Path
 
-When invoking the scribe agent, the narrator agent includes the transcript log path in the prompt:
+When launching both agents, the skill includes the work directory path in the prompt:
 
 ```
-Create a commit for: "add user authentication logic"
-Master diff: /tmp/historian-master-20251022-150814.diff
-Branch: feature/auth-20251022-150814-clean
-Transcript: /tmp/historian-transcript-20251022-150814.log
+Work directory: /tmp/historian-20251024-150814
+Changeset: Add user authentication with OAuth support
 ```
 
-### 3. Scribe Appends to Log
+### 3. Both Agents Append to Log
 
-The scribe agent:
-1. Receives the transcript path from the narrator agent
-2. Appends its own log entries using bash echo or Write tool
-3. Logs all significant events during commit creation
+Both agents:
+1. Calculate the transcript path from the work directory
+2. Append log entries using bash echo commands
+3. Log all significant events during execution
 
-### 4. Resume Operations Continue Logging
+Example bash command used by both agents:
+```bash
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:narrator] [STEP] Description" >> "$WORK_DIR/transcript.log"
+```
 
-When resumed after a QUESTION:
-- The narrator agent includes the transcript path in Resume State
-- Both agents continue appending to the same log file
-- The control flow is fully traceable across resumptions
+### 4. Single Execution
+
+Agents run in a single long-lived execution:
+- Continuous flow from start to completion
+- User interactions happen mid-execution via AskUserQuestion
 
 ## Accessing the Transcript
 
-After a historian run completes, the transcript path is included in the final result:
+After a historian run completes, the skill reports the transcript location:
 
 ```
-RESULT: SUCCESS
+Success!
+
 Original branch: feature/auth
-Clean branch: feature/auth-20251022-150814-clean
-Base commit: abc123
+Clean branch: feature/auth-20251024-150814-clean
 Commits created: 7
-Transcript: /tmp/historian-transcript-20251022-150814.log
+Transcript: /tmp/historian-20251024-150814/transcript.log
 ```
 
 You can then read the transcript to see exactly what happened:
 
 ```bash
-cat /tmp/historian-transcript-20251022-150814.log
+cat /tmp/historian-20251024-150814/transcript.log
 ```
 
 ## Benefits
@@ -146,14 +153,16 @@ cat /tmp/historian-transcript-20251022-150814.log
 2. **Understanding**: Trace the control flow between narrator and scribe agents
 3. **Performance**: Identify slow steps by comparing timestamps
 4. **Validation**: Verify that agents are following the expected workflow
-5. **Improvement**: Analyze patterns to improve the plugin's instructions
+5. **User interaction tracking**: See when and why questions were asked
+6. **Improvement**: Analyze patterns to improve the plugin's instructions
 
 ## Implementation Details
 
-Both agents use bash commands to append to the log:
+Both agents use simple bash commands to append to the log:
 
 ```bash
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:narrator] [STEP] Step 1: Validate Readiness" >> /tmp/historian-transcript-{timestamp}.log
+TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+echo "[$TIMESTAMP] [AGENT:narrator] [STEP] Step 1: Validate Readiness" >> "$WORK_DIR/transcript.log"
 ```
 
 The logging is designed to have minimal performance impact while providing comprehensive visibility into the agent workflow.

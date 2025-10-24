@@ -20,12 +20,13 @@ Pass the user's arguments (`$ARGUMENTS`) as the prompt to the skill.
 
 ## What the Skill Does
 
-The skill acts as a trampoline coordinator:
+The skill coordinates the rewrite process:
 1. Sets up a work directory in `/tmp/historian-{timestamp}/`
-2. Launches narrator and scribe agents in parallel
-3. Polls their status files to detect questions or completion
-4. Asks the user questions when either agent needs input
-5. Reports final results
+2. Launches narrator and scribe agents in parallel (fork/join)
+3. Waits for both agents to complete
+4. Reports final results
+
+Both agents use AskUserQuestion directly when they need user input.
 
 See [skills/rewriting-git-commits/SKILL.md](../skills/rewriting-git-commits/SKILL.md) for details.
 
