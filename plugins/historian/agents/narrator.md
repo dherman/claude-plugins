@@ -24,67 +24,19 @@ Execute these steps in sequence using multiple tool calls:
 
 ### Step 1-2: Setup and Validation
 
-Start with this bash script to validate and prepare:
+Use the setup helper script to validate the repository and prepare materials:
 
 ```bash
-# Parse input
 WORK_DIR="/tmp/historian-20251024-003129"  # From your input
 CHANGESET="Add user authentication"         # From your input
 
-# Stay in the git repository - don't cd to work directory
-# The work directory is just for IPC files, not for git operations
+# Run setup script from work directory (copied there by the skill)
+eval "$("$WORK_DIR/scripts/narrator-setup.sh" "$WORK_DIR" "$CHANGESET")"
 
-# ===== STEP 1: VALIDATE READINESS =====
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Validating git repository" >> "$WORK_DIR/transcript.log"
-
-# Check working tree is clean
-if ! git diff-index --quiet HEAD --; then
-  echo "error" > "$WORK_DIR/narrator/status"
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] ERROR: Working tree not clean" >> "$WORK_DIR/transcript.log"
-  exit 1
-fi
-
-# Get current branch
-BRANCH=$(git rev-parse --abbrev-ref HEAD)
-if [ "$BRANCH" = "HEAD" ]; then
-  echo "error" > "$WORK_DIR/narrator/status"
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] ERROR: Detached HEAD" >> "$WORK_DIR/transcript.log"
-  exit 1
-fi
-
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Git validation passed, on branch: $BRANCH" >> "$WORK_DIR/transcript.log"
-
-# ===== STEP 2: PREPARE MATERIALS =====
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Preparing materials" >> "$WORK_DIR/transcript.log"
-
-# Get base commit
-BASE_COMMIT=$(git merge-base HEAD origin/main 2>/dev/null || git merge-base HEAD main)
-
-# Extract timestamp
-TIMESTAMP=$(basename "$WORK_DIR" | sed 's/historian-//')
-CLEAN_BRANCH="${BRANCH}-${TIMESTAMP}-clean"
-
-# Create master diff
-git diff ${BASE_COMMIT}..HEAD > "$WORK_DIR/master.diff"
-
-# Create clean branch
-git checkout -b "$CLEAN_BRANCH" "$BASE_COMMIT"
-
-# Update state.json
-cat > "$WORK_DIR/state.json" <<EOF
-{
-  "timestamp": "$TIMESTAMP",
-  "original_branch": "$BRANCH",
-  "clean_branch": "$CLEAN_BRANCH",
-  "base_commit": "$BASE_COMMIT",
-  "work_dir": "$WORK_DIR"
-}
-EOF
-
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Created clean branch: $CLEAN_BRANCH" >> "$WORK_DIR/transcript.log"
+# Now you have: BRANCH, CLEAN_BRANCH, BASE_COMMIT, TIMESTAMP
 ```
 
-After this bash command completes, continue to the next step.
+After this completes, continue to the next step.
 
 ## Step 3: Develop Story and Create Commit Plan
 
@@ -132,13 +84,12 @@ For each commit in your plan, send a request to the scribe and wait for the resu
 
 ```bash
 WORK_DIR="/tmp/historian-20251024-003129"
-PLUGIN_ROOT="..."  # From Step 1
 
 COMMIT_NUM=1
 DESCRIPTION="Add user authentication models"
 
 # Send request and wait for result
-"$PLUGIN_ROOT/scripts/narrator-send-request.sh" "$WORK_DIR" "$COMMIT_NUM" "$DESCRIPTION"
+"$WORK_DIR/scripts/narrator-send-request.sh" "$WORK_DIR" "$COMMIT_NUM" "$DESCRIPTION"
 ```
 
 The script outputs the result (STATUS=SUCCESS or STATUS=ERROR). **Check the status and handle errors:**
@@ -170,11 +121,10 @@ Use the validation script to compare branches:
 
 ```bash
 WORK_DIR="/tmp/historian-20251024-003129"
-PLUGIN_ROOT="..."  # From Step 1
 CLEAN_BRANCH="..."  # From Step 1
 BRANCH="..."  # From Step 1
 
-"$PLUGIN_ROOT/scripts/narrator-validate.sh" "$WORK_DIR" "$CLEAN_BRANCH" "$BRANCH"
+"$WORK_DIR/scripts/narrator-validate.sh" "$WORK_DIR" "$CLEAN_BRANCH" "$BRANCH"
 ```
 
 ## Step 7: Mark Complete

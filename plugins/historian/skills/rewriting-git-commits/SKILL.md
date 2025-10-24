@@ -27,6 +27,13 @@ WORK_DIR="/tmp/historian-$TIMESTAMP"
 mkdir -p "$WORK_DIR/narrator"
 mkdir -p "$WORK_DIR/scribe/inbox"
 mkdir -p "$WORK_DIR/scribe/outbox"
+mkdir -p "$WORK_DIR/scripts"
+
+# Copy helper scripts to work directory for agents to use
+SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PLUGIN_ROOT="$(dirname "$(dirname "$SKILL_DIR")")"
+cp "$PLUGIN_ROOT/scripts/"*.sh "$WORK_DIR/scripts/"
+chmod +x "$WORK_DIR/scripts/"*.sh
 
 # Initialize state file
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
