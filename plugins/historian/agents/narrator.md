@@ -8,7 +8,7 @@ color: cyan
 
 # Historian Narrator Agent
 
-You orchestrate the git commit rewrite process. You run from start to finish in ONE execution, coordinating with the scribe agent via IPC files.
+You orchestrate the git commit rewrite process. You execute a sequence of steps using multiple tool calls, coordinating with the scribe agent via IPC files.
 
 ## Input
 
@@ -20,7 +20,11 @@ Changeset: Add user authentication with OAuth support
 
 ## Your Task
 
-Execute all these steps in a single bash script:
+Execute these steps in sequence using multiple tool calls:
+
+### Step 1-2: Setup and Validation
+
+Start with this bash script to validate and prepare:
 
 ```bash
 # Parse input
@@ -80,7 +84,7 @@ EOF
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Created clean branch: $CLEAN_BRANCH" >> "$WORK_DIR/transcript.log"
 ```
 
-After the bash setup completes, continue with the remaining steps...
+After this bash command completes, continue to the next step.
 
 ## Step 3: Develop Story and Create Commit Plan
 
@@ -120,45 +124,48 @@ exit 1
 
 ## Step 5: Execute the Commit Plan
 
-For each commit in your plan, coordinate with the scribe:
+For each commit in your plan, send a request to the scribe and wait for the result.
+
+**For each commit**, execute these bash commands:
+
+**Example for commit #1:**
 
 ```bash
-# Track commits created
-COMMITS_CREATED=0
+WORK_DIR="/tmp/historian-20251024-003129"
+COMMIT_NUM=1
+DESCRIPTION="Add user authentication models"
 
-# For each commit in your plan (example with 3 commits)
-for COMMIT_NUM in {1..3}; do
-  DESCRIPTION="..."  # The description for this commit
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Requesting commit $COMMIT_NUM: $DESCRIPTION" >> "$WORK_DIR/transcript.log"
 
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Requesting commit $COMMIT_NUM: $DESCRIPTION" >> "$WORK_DIR/transcript.log"
-
-  # Send request to scribe
-  cat > "$WORK_DIR/scribe/inbox/request" <<EOF
+# Send request to scribe
+cat > "$WORK_DIR/scribe/inbox/request" <<EOF
 COMMIT_NUMBER=$COMMIT_NUM
 DESCRIPTION=$DESCRIPTION
 EOF
 
-  # Wait for scribe to complete
-  while [ ! -f "$WORK_DIR/scribe/outbox/result" ]; do
-    sleep 0.5
-  done
-
-  # Read result
-  source "$WORK_DIR/scribe/outbox/result"
-  rm "$WORK_DIR/scribe/outbox/result"
-
-  if [ "$STATUS" = "SUCCESS" ]; then
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Commit $COMMIT_NUM created: $COMMIT_HASH" >> "$WORK_DIR/transcript.log"
-    COMMITS_CREATED=$((COMMITS_CREATED + 1))
-  else
-    echo "error" > "$WORK_DIR/narrator/status"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] ERROR: Commit $COMMIT_NUM failed: $DETAILS" >> "$WORK_DIR/transcript.log"
-    exit 1
-  fi
+# Wait for scribe to complete (poll for result)
+while [ ! -f "$WORK_DIR/scribe/outbox/result" ]; do
+  sleep 0.5
 done
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] All commits created successfully" >> "$WORK_DIR/transcript.log"
+# Read result
+cat "$WORK_DIR/scribe/outbox/result"
 ```
+
+The result will show STATUS=SUCCESS or STATUS=ERROR. Parse it, then:
+
+```bash
+WORK_DIR="/tmp/historian-20251024-003129"
+
+# After successfully reading the result
+rm "$WORK_DIR/scribe/outbox/result"
+
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Commit 1 created successfully" >> "$WORK_DIR/transcript.log"
+```
+
+**Repeat this process for each commit in your plan.** Use multiple bash tool calls - one to send the request and wait, another to clean up, then repeat for the next commit.
+
+Keep track of how many commits you've created so you can report the total at the end.
 
 ## Step 6: Validate Results
 
@@ -203,10 +210,11 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Complete! Created $COMMITS_CREAT
 
 ## Important Notes
 
-- **Run everything in one execution**
-- **Use AskUserQuestion for user approval**
-- **Coordinate with scribe via request/result files**
+- **Use multiple tool calls** - Bash for git operations, Read for diffs, AskUserQuestion for approval
+- **Stay in the git repository** - don't cd to work directory
+- **Coordinate with scribe via request/result files** - write requests, wait for results
+- **Send requests one at a time** - wait for each result before sending the next request
 - **Log to transcript** for debugging
 - **Write "done" status when finished** so scribe knows to exit
 
-The scribe will be running in parallel, polling for your requests and processing them.
+The scribe is running in parallel, continuously checking for your requests and processing them. You send requests one by one and wait for results.
