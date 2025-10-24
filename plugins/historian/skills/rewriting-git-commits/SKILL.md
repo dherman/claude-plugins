@@ -43,9 +43,9 @@ echo "Created work directory: $WORK_DIR"
 
 Save the `$WORK_DIR` value for later use.
 
-### Step 2: Launch Narrator
+### Step 2: Launch Both Agents in Parallel
 
-Launch the narrator agent:
+**CRITICAL: Make TWO Task calls in a SINGLE message** to launch both agents in parallel:
 
 ```
 Task(
@@ -54,30 +54,7 @@ Task(
   prompt: "Work directory: $WORK_DIR
 Changeset: $PROMPT"
 )
-```
 
-The narrator will:
-- Ask you to approve the commit plan (using AskUserQuestion)
-- Coordinate with scribe to create commits
-- Validate the final result
-
-### Step 3: Launch Scribe (with restart loop)
-
-The scribe may run out of tokens before completing all commits. You need to restart it if needed.
-
-**First, check if narrator is done:**
-
-```bash
-WORK_DIR="/tmp/historian-{actual-timestamp}"
-
-if [ -f "$WORK_DIR/narrator/status" ] && grep -q "done" "$WORK_DIR/narrator/status"; then
-  echo "Narrator finished - work complete"
-fi
-```
-
-If narrator is **not done**, launch the scribe:
-
-```
 Task(
   subagent_type: "historian:scribe",
   description: "Create commits",
@@ -85,7 +62,37 @@ Task(
 )
 ```
 
-After the scribe completes, **go back to the beginning of Step 3** and check again if the narrator is done.
+Both agents will run in parallel:
+- **Narrator**: Asks you to approve the commit plan, sends requests to scribe, validates results
+- **Scribe**: Polls for requests, creates commits, may ask you about splitting large commits
+
+You will **block here** until both agents complete.
+
+### Step 3: Check if Scribe Needs Restart
+
+After both agents return, check if the work is complete:
+
+```bash
+WORK_DIR="/tmp/historian-{actual-timestamp}"
+
+if [ -f "$WORK_DIR/narrator/status" ] && grep -q "done" "$WORK_DIR/narrator/status"; then
+  echo "Work complete"
+else
+  echo "Narrator still working - need to restart scribe"
+fi
+```
+
+If narrator is **not done**, the scribe must have run out of tokens. Restart it:
+
+```
+Task(
+  subagent_type: "historian:scribe",
+  description: "Create commits (restarted)",
+  prompt: "Work directory: $WORK_DIR"
+)
+```
+
+After the scribe completes, **go back to the beginning of Step 3** and check again.
 
 **Keep repeating Step 3** until the narrator writes "done" to its status file.
 
