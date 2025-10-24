@@ -38,7 +38,7 @@ Also check:
 /agents
 ```
 
-You should see `commit-writer` in the list.
+You should see `scribe` in the list.
 
 ```bash
 /skills

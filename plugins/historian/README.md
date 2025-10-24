@@ -15,13 +15,20 @@ The plugin takes your current branch (with messy commits) and creates a new "cle
 - Have descriptive commit messages
 - Follow a logical progression
 
-## Components
+## Architecture
 
-The plugin consists of four main components:
+The plugin uses a **trampoline pattern** with **file-based IPC** to coordinate two parallel long-running agents. This minimizes context overhead by keeping agent work isolated.
 
-### 1. Slash Command: `/narrate`
+### Components
 
-A lightweight entry point for users. Takes a description of what the changeset accomplishes and delegates to the historian agent.
+#### 1. Slash Command: `/narrate`
+
+The trampoline coordinator that:
+- Sets up a work directory in `/tmp/historian-{timestamp}/`
+- Launches narrator and scribe agents in parallel
+- Monitors their status via files
+- Handles user questions from either agent
+- Reports final results
 
 **Usage:**
 ```bash
@@ -30,118 +37,143 @@ A lightweight entry point for users. Takes a description of what the changeset a
 
 **Location:** `commands/narrate.md`
 
-### 2. Skill: Rewriting Git Commits
+#### 2. Skill: Rewriting Git Commits
 
-A lightweight skill that can be invoked programmatically. Simply delegates to the historian agent.
+A lightweight wrapper that delegates to `/narrate`.
 
 **Location:** `skills/rewriting-git-commits/SKILL.md`
 
-### 3. Agent: `narrator` (cyan)
+#### 3. Agent: `narrator` (cyan)
 
-The main orchestrator that manages the overall rewriting process through six steps:
+The main orchestrator that runs in parallel with scribe. Workflow:
 
-1. **Validate Readiness** - Ensures git working tree is clean and ready
-2. **Prepare Materials** - Creates clean branch and master diff file
-3. **Develop Story** - Analyzes changes and creates narrative structure
+1. **Validate Readiness** - Ensures git working tree is clean
+2. **Prepare Materials** - Creates clean branch and master diff
+3. **Develop Story** - Analyzes changes and creates narrative
 4. **Create Commit Plan** - Breaks story into discrete commits
-5. **Execute Plan** - Delegates to commit-writer agent for each commit
-6. **Validate Results** - Verifies clean branch matches original
+5. **Ask User for Approval** - Presents plan via question file
+6. **Execute Plan** - Sends requests to scribe via IPC
+7. **Validate Results** - Verifies clean branch matches original
+
+Communicates via files in `narrator/` directory.
 
 **Location:** `agents/narrator.md`
 
-### 4. Agent: `commit-writer` (orange)
+#### 4. Agent: `scribe` (orange)
 
-A specialized agent that writes individual commits. It can:
+A specialized worker that runs in parallel with narrator. Workflow:
 
-- Create focused, atomic commits
-- Detect when a commit is too large
-- Ask for guidance on splitting large commits
-- Resume from where it left off after getting guidance
+- Waits for requests from narrator in `scribe/inbox/`
+- Analyzes commit size and complexity
+- Creates single commits for reasonable size
+- Asks user (via question file) how to split large commits
+- Writes results to `scribe/outbox/`
+- Shuts down when narrator signals done
 
-**Location:** `agents/commit-writer.md`
+**Location:** `agents/scribe.md`
+
+### File-Based IPC
+
+Agents coordinate through files in `/tmp/historian-{timestamp}/`:
+
+```
+/tmp/historian-{timestamp}/
+  ├── transcript.log              # Shared log
+  ├── master.diff                 # All changes
+  ├── state.json                  # Shared state
+  ├── narrator/
+  │   ├── status                  # "planning" | "executing" | "done" | "error"
+  │   ├── question                # Questions for user
+  │   └── answer                  # User answers
+  └── scribe/
+      ├── status                  # "idle" | "working" | "done"
+      ├── question                # Questions for user
+      ├── answer                  # User answers
+      ├── inbox/request           # Requests from narrator
+      └── outbox/result           # Results to narrator
+```
+
+See [docs/ipc-protocol.md](docs/ipc-protocol.md) for complete details.
 
 ## How It Works
 
 ### Basic Flow
 
-1. You invoke: `/narrate "Description of your changeset"`
+1. **You invoke:** `/narrate "Description of your changeset"`
 
-2. The command delegates to the historian agent
+2. **Command sets up IPC:**
+   - Creates work directory `/tmp/historian-{timestamp}/`
+   - Initializes file structure for communication
 
-3. The historian agent validates your git state and prepares materials:
-   - Creates a new branch: `{your-branch}-{timestamp}-clean`
-   - Generates a master diff of all changes
+3. **Launches agents in parallel:**
+   - Narrator agent starts planning
+   - Scribe agent starts waiting for requests
 
-4. The historian agent analyzes your changes and develops a story:
-   - Identifies key themes and layers
-   - Determines logical ordering
-   - Creates narrative structure
+4. **Narrator validates and prepares:**
+   - Checks git working tree is clean
+   - Creates clean branch: `{your-branch}-{timestamp}-clean`
+   - Generates master diff of all changes
 
-5. The historian agent creates a commit plan:
-   - Breaks story into discrete commits
-   - Estimates size and identifies files
-   - Presents plan for your approval
+5. **Narrator creates commit plan:**
+   - Analyzes changes and develops a story
+   - Identifies key themes and logical layers
+   - Creates detailed commit plan
+   - Breaks into discrete, logical commits
 
-6. You review and approve the plan
+6. **User reviews and approves:**
+   - Narrator writes question file
+   - Command presents plan to you
+   - You approve or cancel
 
-7. The historian agent executes the plan:
-   - Delegates each commit to the commit-writer agent (orange)
-   - Handles questions if commits need splitting
-   - Tracks progress with todo list
+7. **Execution loop:**
+   - Narrator sends commit requests to scribe via `inbox/request` files
+   - Scribe creates each commit
+   - Scribe writes results to `outbox/result` files
+   - If commit is too large, scribe asks user how to split
+   - Command handles all user questions via file IPC
 
-8. The historian agent validates results:
-   - Compares clean branch to original
+8. **Validation:**
+   - Narrator compares clean branch to original
    - Ensures contents are identical
-   - Provides summary
+   - Writes "done" status
 
-### Result Protocol and Resumability
+9. **Command reports results:**
+   - Both agents shut down cleanly
+   - You get clean branch name and commit count
+   - Transcript available for debugging
 
-The plugin uses a consistent result protocol throughout the agent hierarchy:
+### Advantages of This Architecture
 
-#### Three Result Types
+1. **Minimal Context Overhead** - Agents run in parallel, isolated from your main context
+2. **No Agent-to-Agent Calls** - Works around Claude Code limitation
+3. **Direct User Communication** - Both agents can ask questions without propagation
+4. **Easy Debugging** - All IPC files visible for inspection
+5. **Resumable** - User questions don't block either agent
 
-Every agent (historian and commit-writer) returns one of:
+### Example: Handling Large Commits
 
-1. **SUCCESS** - Operation completed successfully
-2. **ERROR** - Unrecoverable error occurred
-3. **QUESTION** - Needs user guidance to proceed
+If the scribe agent detects a commit is too large:
 
-#### Question and Resume Flow
+1. **Scribe writes question file:**
+   ```
+   CONTEXT=Commit 3 "add authentication" is too large (23 files)
+   OPTION_1=Three commits: (1) core auth (2) middleware (3) sessions
+   OPTION_2=Two commits: (1) backend (2) frontend
+   OPTION_3=Four commits: (1) schema (2) service (3) middleware (4) UI
+   ```
 
-When an agent needs user input:
+2. **Command detects question and asks you**
 
-1. **Agent pauses** and returns a QUESTION result with:
-   - Context explaining the situation
-   - Resume state (all information needed to continue)
-   - 2-3 options for the user to choose from
+3. **You choose Option 1**
 
-2. **User answers** by selecting an option
+4. **Command writes answer file:**
+   ```
+   ANSWER=Option 1
+   ```
 
-3. **Agent resumes** with the resume state and user's answer, picking up exactly where it left off
+5. **Scribe reads answer and creates 3 commits**
 
-#### Example: Handling Large Commits
-
-If the commit-writer agent detects a commit is too large:
-
-**Question from commit-writer:**
-```
-RESULT: QUESTION
-Context: Commit 3 "add authentication" is too large (23 files)
-
-Option 1: Three commits - (1) core auth logic, (2) authorization middleware, (3) session handling
-Option 2: Two commits - (1) backend implementation, (2) frontend integration
-Option 3: Four commits - (1) database schema, (2) auth service, (3) middleware, (4) UI
-
-What approach should I take?
-```
-
-**Propagated through historian:**
-
-The historian agent receives this QUESTION, wraps it with its own resume state, and passes it up to the command/skill, which presents it to you.
-
-**After your answer:**
-
-Your answer flows back down: command → historian agent → commit-writer agent, and execution resumes seamlessly.
+6. **Execution continues**
 
 ## Installation
 
@@ -163,15 +195,16 @@ historian/
 ├── .claude-plugin/
 │   └── plugin.json                    # Plugin manifest
 ├── commands/
-│   └── narrate.md             # Slash command (lightweight frontend)
+│   └── narrate.md                     # Trampoline coordinator
 ├── skills/
 │   └── rewriting-git-commits/
-│       └── SKILL.md                    # Skill (lightweight frontend)
+│       └── SKILL.md                   # Wrapper around /narrate
 ├── agents/
-│   ├── narrator.md                    # Main orchestrator agent (cyan)
-│   └── commit-writer.md               # Commit creation agent (orange)
+│   ├── narrator.md                    # Main orchestrator (cyan)
+│   └── scribe.md               # Commit creator (orange)
 ├── docs/
-│   └── result-protocol.md             # Shared protocol specification
+│   ├── ipc-protocol.md                # File-based IPC specification
+│   └── transcript-logging.md          # Transcript format
 └── settings.json                       # Recommended permissions
 ```
 
@@ -225,36 +258,6 @@ historian/
 * test: add validation module tests
 ```
 
-## Architecture and Protocol
-
-### Agent Hierarchy
-
-The plugin uses a three-level architecture:
-
-```
-Command/Skill (frontends)
-    ↓
-historian agent (cyan) - orchestrator
-    ↓
-commit-writer agent (orange) - individual commits
-```
-
-### Result Protocol
-
-All agents follow a consistent protocol defined in [docs/result-protocol.md](docs/result-protocol.md):
-
-- **Return one of three results**: SUCCESS, ERROR, or QUESTION
-- **Resumable execution**: When returning QUESTION, agents include complete resume state
-- **Bubble up questions**: Questions propagate up the hierarchy to reach the user
-- **Flow answers down**: User answers flow back down to resume execution
-
-See the [Result Protocol documentation](docs/result-protocol.md) for detailed format specifications and examples.
-
-This design optimizes context usage by:
-1. Keeping frontends (command/skill) lightweight
-2. Loading heavy orchestration logic only when needed (historian agent)
-3. Isolating commit creation logic (commit-writer agent)
-4. Supporting seamless pause/resume for user interaction
 
 ## Design Philosophy
 
@@ -285,7 +288,7 @@ Commits are sized for human review:
 
 ### Commit Message Format
 
-The commit-writer agent uses conventional commits format:
+The scribe agent uses conventional commits format:
 
 ```
 <type>: <short summary>
@@ -297,7 +300,7 @@ The commit-writer agent uses conventional commits format:
 
 ### Agent Behavior
 
-The commit-writer agent is configured to:
+The scribe agent is configured to:
 - Ask questions when commits exceed 15 files or 500 lines
 - Use Read, Write, Edit, Bash, Grep, and Glob tools
 - Run on the Sonnet model for balance of capability and speed
@@ -342,7 +345,7 @@ To test the plugin, you can:
 
 You can extend the plugin by:
 
-- Customizing the commit-writer agent prompt
+- Customizing the scribe agent prompt
 - Adjusting size thresholds for large commits
 - Adding additional validation steps
 - Customizing commit message format

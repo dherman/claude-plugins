@@ -1,95 +1,56 @@
 ---
 name: Rewriting Git Commits
 description: Rewrites a git commit sequence for a changeset to create a clean branch with commits optimized for readability and review
-allowed-tools: Task
+allowed-tools: SlashCommand
 ---
 
 # Rewriting Git Commits Skill
 
-This skill is a lightweight frontend that invokes the historian agent to rewrite commit sequences.
+This skill is a lightweight frontend that invokes the `/narrate` command to rewrite commit sequences.
 
 ## Your Task
 
-This skill handles the result protocol from the historian agent and may require multiple invocations to handle user questions.
+When this skill is invoked with a changeset description, simply delegate to the `/narrate` command:
 
-### Step 1: Initial Invocation
-
-When this skill is invoked with a changeset description:
-
-1. Invoke the historian agent using Task tool:
-   - **subagent_type**: `"historian:narrator"`
-   - **description**: "Rewrite git commits"
-   - **prompt**: Include the changeset description
-
-### Step 2: Handle the Result
-
-The historian agent returns one of three results:
-
-#### SUCCESS Result
 ```
-RESULT: SUCCESS
-Original branch: {branch}
-Clean branch: {clean-branch}
-Base commit: {hash}
-Commits created: {count}
+/narrate {changeset description}
 ```
 
-**Action**: Report success to the caller with the summary.
+## Architecture
 
-#### ERROR Result
-```
-RESULT: ERROR
-Step: {step}
-Description: {description}
-Details: {details}
-```
+The historian plugin uses a **trampoline pattern** with file-based IPC. See [docs/ipc-protocol.md](../../docs/ipc-protocol.md) for details on how this works.
 
-**Action**: Report the error to the caller.
-
-#### QUESTION Result
-```
-RESULT: QUESTION
-Context: {context}
-Resume State: {state}
-
-{Question with options}
-
-Option 1: {description}
-Option 2: {description}
-Option 3: {description}
-
-What should I do?
-```
-
-**Action**:
-1. Present the question and options to the user (via your caller)
-2. Wait for the user's answer
-3. Re-invoke historian agent following the resumption template in [docs/result-protocol.md](../../docs/result-protocol.md):
-   - Use standard format with Resume State and User's Answer
-4. Go back to Step 2 to handle the new result
-
-### Step 3: Return Result
-
-Once you receive SUCCESS or ERROR, pass it back to your caller.
+The `/narrate` command:
+1. Launches narrator and scribe agents in parallel
+2. Monitors their status via files
+3. Handles user questions from either agent
+4. Reports final results
 
 ## Example
 
-**Simple case:**
+**Input to skill:**
 ```
-Input: "Add user authentication with OAuth support"
-→ Invoke historian agent
-→ Agent returns SUCCESS
-→ Return success to caller
+Add user authentication with OAuth support
 ```
 
-**Case with question:**
+**Skill action:**
 ```
-Input: "Add authentication system"
-→ Invoke historian agent
-→ Agent returns QUESTION
-→ Present question to user (via caller)
-→ User answers "Option 1"
-→ Re-invoke historian with resume context
-→ Agent returns SUCCESS
-→ Return success to caller
+/narrate Add user authentication with OAuth support
 ```
+
+**What happens:**
+1. `/narrate` command sets up work directory
+2. Launches both agents in parallel
+3. Narrator creates commit plan and asks user for approval
+4. User approves
+5. Narrator and scribe coordinate via files to create commits
+6. Scribe may ask user about splitting large commits
+7. Final clean branch is created
+8. Results reported to user
+
+## Notes
+
+- This skill is now just a thin wrapper around the `/narrate` command
+- All the orchestration logic is in the command
+- The command handles all user interaction
+- Both agents run in parallel for minimal context overhead
