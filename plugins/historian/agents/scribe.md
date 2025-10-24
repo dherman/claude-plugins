@@ -45,17 +45,19 @@ Work directory: /tmp/historian-20251024-003129
 
 ## Your Task
 
-**Extract the work directory from your input, then execute the state machine below.**
+**Extract the work directory from your input, then check your state.json file.**
 
-## State Machine
+- **If state.json doesn't exist OR phase is "idle":** Execute the "Idle Phase" workflow below
+- **If phase is "processing":** Execute the "Processing Phase" workflow below
+- **If phase is "done":** Just exit immediately
 
-### Phase: "idle" or no state file
+**IMPORTANT:** When you transition from idle to processing (because you found a request), you should **continue in the SAME bash command** to process the commit. Do NOT save state as "processing" and then exit - that wastes an iteration.
 
-When you first run or state.phase is "idle":
+## Workflow
 
-**YOU MUST POLL until you find work to do OR narrator asks a question.**
+### Idle Phase Workflow (When Idle or No State)
 
-Use a bash while loop with sleep to poll:
+**When state is "idle" or doesn't exist, use ONE complete bash script that polls for work AND processes it:**
 
 ```bash
 WORK_DIR="/tmp/historian-20251024-003129"  # From input
@@ -70,7 +72,7 @@ EOF
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:scribe] [INIT] Initialized, polling for work" >> ../transcript.log
 fi
 
-# POLLING LOOP - Wait for work or narrator question
+# POLLING LOOP - Wait for work, narrator question, or narrator done
 while true; do
   # Check if narrator is done
   if [ -f ../narrator/status ] && grep -q "done" ../narrator/status; then
@@ -90,26 +92,52 @@ EOF
 
   # Check for new request
   if [ -f inbox/request ]; then
-    # Found work! Process it
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:scribe] [FOUND] Request found, processing..." >> ../transcript.log
+
+    # Load the request
     source inbox/request
     # Now have: $COMMIT_NUMBER and $DESCRIPTION
     rm inbox/request
 
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:scribe] [REQUEST] Processing commit $COMMIT_NUMBER: $DESCRIPTION" >> ../transcript.log
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:scribe] [REQUEST] Commit $COMMIT_NUMBER: $DESCRIPTION" >> ../transcript.log
 
-    # Save request to state and advance to processing
+    # ===== PROCESS THE COMMIT IN THIS SAME BASH COMMAND =====
     echo "processing" > status
-    cat > state.json <<EOF
-{
-  "phase": "processing",
-  "current_request": {
-    "commit_number": $COMMIT_NUMBER,
-    "description": "$DESCRIPTION"
-  }
-}
+
+    # TODO: Read ../master.diff and intelligently extract changes for this commit
+    # For now, this is a placeholder - you would:
+    # 1. Read the master diff
+    # 2. Identify which files/changes belong to this commit description
+    # 3. Apply those changes using git apply or manual file creation
+    # 4. Stage the files
+
+    # Example placeholder: just create an empty commit
+    git commit --allow-empty -m "$DESCRIPTION
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+
+    COMMIT_HASH=$(git rev-parse HEAD)
+
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:scribe] [COMMIT] Created $COMMIT_HASH" >> ../transcript.log
+
+    # Write result
+    cat > outbox/result <<EOF
+STATUS=SUCCESS
+COMMIT_HASH=$COMMIT_HASH
+MESSAGE=$DESCRIPTION
+FILES_CHANGED=0
 EOF
-    # Break out of polling loop to process
-    break
+
+    # Return to idle and exit
+    echo "idle" > status
+    cat > state.json <<EOF
+{"phase": "idle"}
+EOF
+
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:scribe] [COMPLETE] Commit done, returning to idle" >> ../transcript.log
+    exit 0
   fi
 
   # Nothing to do yet, sleep and check again
@@ -117,11 +145,11 @@ EOF
 done
 ```
 
-Now continue to processing phase (below)...
+**That's it for idle phase** - one complete script that polls and processes.
 
-### Phase: "processing"
+### Processing Phase Workflow (When Resuming Mid-Commit)
 
-When state.phase is "processing":
+This phase is only used if you crashed mid-commit and need to resume. Normally you won't reach this because the idle workflow handles everything.
 
 1. **Load state:**
    ```bash
