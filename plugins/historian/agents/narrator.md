@@ -27,30 +27,31 @@ Execute all these steps in a single bash script:
 WORK_DIR="/tmp/historian-20251024-003129"  # From your input
 CHANGESET="Add user authentication"         # From your input
 
-cd "$WORK_DIR/narrator"
+# Stay in the git repository - don't cd to work directory
+# The work directory is just for IPC files, not for git operations
 
 # ===== STEP 1: VALIDATE READINESS =====
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Validating git repository" >> ../transcript.log
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Validating git repository" >> "$WORK_DIR/transcript.log"
 
 # Check working tree is clean
 if ! git diff-index --quiet HEAD --; then
-  echo "error" > status
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] ERROR: Working tree not clean" >> ../transcript.log
+  echo "error" > "$WORK_DIR/narrator/status"
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] ERROR: Working tree not clean" >> "$WORK_DIR/transcript.log"
   exit 1
 fi
 
 # Get current branch
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 if [ "$BRANCH" = "HEAD" ]; then
-  echo "error" > status
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] ERROR: Detached HEAD" >> ../transcript.log
+  echo "error" > "$WORK_DIR/narrator/status"
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] ERROR: Detached HEAD" >> "$WORK_DIR/transcript.log"
   exit 1
 fi
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Git validation passed, on branch: $BRANCH" >> ../transcript.log
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Git validation passed, on branch: $BRANCH" >> "$WORK_DIR/transcript.log"
 
 # ===== STEP 2: PREPARE MATERIALS =====
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Preparing materials" >> ../transcript.log
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Preparing materials" >> "$WORK_DIR/transcript.log"
 
 # Get base commit
 BASE_COMMIT=$(git merge-base HEAD origin/main 2>/dev/null || git merge-base HEAD main)
@@ -60,13 +61,13 @@ TIMESTAMP=$(basename "$WORK_DIR" | sed 's/historian-//')
 CLEAN_BRANCH="${BRANCH}-${TIMESTAMP}-clean"
 
 # Create master diff
-git diff ${BASE_COMMIT}..HEAD > ../master.diff
+git diff ${BASE_COMMIT}..HEAD > "$WORK_DIR/master.diff"
 
 # Create clean branch
 git checkout -b "$CLEAN_BRANCH" "$BASE_COMMIT"
 
 # Update state.json
-cat > ../state.json <<EOF
+cat > "$WORK_DIR/state.json" <<EOF
 {
   "timestamp": "$TIMESTAMP",
   "original_branch": "$BRANCH",
@@ -76,14 +77,14 @@ cat > ../state.json <<EOF
 }
 EOF
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Created clean branch: $CLEAN_BRANCH" >> ../transcript.log
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Created clean branch: $CLEAN_BRANCH" >> "$WORK_DIR/transcript.log"
 ```
 
 After the bash setup completes, continue with the remaining steps...
 
 ## Step 3: Develop Story and Create Commit Plan
 
-Use the Read tool to read `../master.diff` and analyze the changes.
+Use the Read tool to read `$WORK_DIR/master.diff` and analyze the changes.
 
 Based on the diff and the changeset description, create a commit plan that:
 - Breaks changes into 5-15 logical commits
@@ -110,11 +111,10 @@ Would you like to proceed with this plan?
 Wait for the user's response. If they say no or cancel, clean up and exit:
 
 ```bash
-cd "$WORK_DIR/narrator"
 git checkout "$BRANCH"
 git branch -D "$CLEAN_BRANCH"
-echo "error" > status
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] User cancelled" >> ../transcript.log
+echo "error" > "$WORK_DIR/narrator/status"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] User cancelled" >> "$WORK_DIR/transcript.log"
 exit 1
 ```
 
@@ -123,8 +123,6 @@ exit 1
 For each commit in your plan, coordinate with the scribe:
 
 ```bash
-cd "$WORK_DIR/narrator"
-
 # Track commits created
 COMMITS_CREATED=0
 
@@ -132,34 +130,34 @@ COMMITS_CREATED=0
 for COMMIT_NUM in {1..3}; do
   DESCRIPTION="..."  # The description for this commit
 
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Requesting commit $COMMIT_NUM: $DESCRIPTION" >> ../transcript.log
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Requesting commit $COMMIT_NUM: $DESCRIPTION" >> "$WORK_DIR/transcript.log"
 
   # Send request to scribe
-  cat > ../scribe/inbox/request <<EOF
+  cat > "$WORK_DIR/scribe/inbox/request" <<EOF
 COMMIT_NUMBER=$COMMIT_NUM
 DESCRIPTION=$DESCRIPTION
 EOF
 
   # Wait for scribe to complete
-  while [ ! -f ../scribe/outbox/result ]; do
+  while [ ! -f "$WORK_DIR/scribe/outbox/result" ]; do
     sleep 0.5
   done
 
   # Read result
-  source ../scribe/outbox/result
-  rm ../scribe/outbox/result
+  source "$WORK_DIR/scribe/outbox/result"
+  rm "$WORK_DIR/scribe/outbox/result"
 
   if [ "$STATUS" = "SUCCESS" ]; then
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Commit $COMMIT_NUM created: $COMMIT_HASH" >> ../transcript.log
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Commit $COMMIT_NUM created: $COMMIT_HASH" >> "$WORK_DIR/transcript.log"
     COMMITS_CREATED=$((COMMITS_CREATED + 1))
   else
-    echo "error" > status
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] ERROR: Commit $COMMIT_NUM failed: $DETAILS" >> ../transcript.log
+    echo "error" > "$WORK_DIR/narrator/status"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] ERROR: Commit $COMMIT_NUM failed: $DETAILS" >> "$WORK_DIR/transcript.log"
     exit 1
   fi
 done
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] All commits created successfully" >> ../transcript.log
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] All commits created successfully" >> "$WORK_DIR/transcript.log"
 ```
 
 ## Step 6: Validate Results
@@ -167,8 +165,6 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] All commits created successfully
 Compare the clean branch to the original:
 
 ```bash
-cd "$WORK_DIR/narrator"
-
 # Compare tree hashes
 git checkout "$CLEAN_BRANCH"
 CLEAN_TREE=$(git rev-parse HEAD^{tree})
@@ -177,22 +173,20 @@ git checkout "$BRANCH"
 ORIGINAL_TREE=$(git rev-parse HEAD^{tree})
 
 if [ "$CLEAN_TREE" != "$ORIGINAL_TREE" ]; then
-  echo "error" > status
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] ERROR: Branch trees do not match!" >> ../transcript.log
+  echo "error" > "$WORK_DIR/narrator/status"
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] ERROR: Branch trees do not match!" >> "$WORK_DIR/transcript.log"
   git diff --stat "$CLEAN_BRANCH" "$BRANCH"
   exit 1
 fi
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Validation successful - trees match" >> ../transcript.log
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Validation successful - trees match" >> "$WORK_DIR/transcript.log"
 ```
 
 ## Step 7: Mark Complete
 
 ```bash
-cd "$WORK_DIR/narrator"
-
 # Update final state
-cat > ../state.json <<EOF
+cat > "$WORK_DIR/state.json" <<EOF
 {
   "timestamp": "$TIMESTAMP",
   "original_branch": "$BRANCH",
@@ -203,8 +197,8 @@ cat > ../state.json <<EOF
 }
 EOF
 
-echo "done" > status
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Complete! Created $COMMITS_CREATED commits" >> ../transcript.log
+echo "done" > "$WORK_DIR/narrator/status"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Complete! Created $COMMITS_CREATED commits" >> "$WORK_DIR/transcript.log"
 ```
 
 ## Important Notes

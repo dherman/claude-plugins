@@ -23,26 +23,28 @@ Run a continuous while loop that polls for requests and processes them:
 
 ```bash
 WORK_DIR="/tmp/historian-20251024-003129"  # From your input
-cd "$WORK_DIR/scribe"
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SCRIBE] Starting, waiting for requests" >> ../transcript.log
+# Stay in the git repository - don't cd to work directory
+# The work directory is just for IPC files, not for git operations
+
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SCRIBE] Starting, waiting for requests" >> "$WORK_DIR/transcript.log"
 
 # MAIN LOOP - Run until narrator signals done
 while true; do
   # Check if narrator is done
-  if [ -f ../narrator/status ] && grep -q "done" ../narrator/status; then
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SCRIBE] Narrator finished, exiting" >> ../transcript.log
+  if [ -f "$WORK_DIR/narrator/status" ] && grep -q "done" "$WORK_DIR/narrator/status"; then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SCRIBE] Narrator finished, exiting" >> "$WORK_DIR/transcript.log"
     exit 0
   fi
 
   # Check for new request
-  if [ -f inbox/request ]; then
+  if [ -f "$WORK_DIR/scribe/inbox/request" ]; then
     # Load the request
-    source inbox/request
+    source "$WORK_DIR/scribe/inbox/request"
     # Now have: $COMMIT_NUMBER and $DESCRIPTION
-    rm inbox/request
+    rm "$WORK_DIR/scribe/inbox/request"
 
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SCRIBE] Processing commit $COMMIT_NUMBER: $DESCRIPTION" >> ../transcript.log
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SCRIBE] Processing commit $COMMIT_NUMBER: $DESCRIPTION" >> "$WORK_DIR/transcript.log"
 
     # PROCESS THE COMMIT - see below for details
     # This is where you read the master diff, extract changes, and create the commit
@@ -61,17 +63,17 @@ while true; do
 Co-Authored-By: Claude <noreply@anthropic.com>"
 
     COMMIT_HASH=$(git rev-parse HEAD)
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SCRIBE] Created commit: $COMMIT_HASH" >> ../transcript.log
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SCRIBE] Created commit: $COMMIT_HASH" >> "$WORK_DIR/transcript.log"
 
     # Write result for narrator
-    cat > outbox/result <<EOF
+    cat > "$WORK_DIR/scribe/outbox/result" <<EOF
 STATUS=SUCCESS
 COMMIT_HASH=$COMMIT_HASH
 MESSAGE=$DESCRIPTION
 FILES_CHANGED=0
 EOF
 
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SCRIBE] Sent result to narrator" >> ../transcript.log
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SCRIBE] Sent result to narrator" >> "$WORK_DIR/transcript.log"
   fi
 
   # Sleep briefly before checking again
@@ -85,7 +87,7 @@ When you receive a request, you need to intelligently create the commit. Here's 
 
 ### 1. Read the Master Diff
 
-Use the Read tool to read `../master.diff`. This contains ALL changes from the original branch.
+Use the Read tool to read `$WORK_DIR/master.diff`. This contains ALL changes from the original branch.
 
 ### 2. Identify Relevant Changes
 
@@ -140,7 +142,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 Always write a result file so the narrator knows you're done:
 
 ```bash
-cat > outbox/result <<EOF
+cat > "$WORK_DIR/scribe/outbox/result" <<EOF
 STATUS=SUCCESS
 COMMIT_HASH=$COMMIT_HASH
 MESSAGE=$DESCRIPTION
@@ -151,7 +153,7 @@ EOF
 Or if something fails:
 
 ```bash
-cat > outbox/result <<EOF
+cat > "$WORK_DIR/scribe/outbox/result" <<EOF
 STATUS=ERROR
 DETAILS=Failed to apply changes: $ERROR_MESSAGE
 EOF
