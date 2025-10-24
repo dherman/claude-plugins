@@ -13,6 +13,15 @@
       "author": {
         "name": "David Herman"
       }
+    },
+    {
+      "name": "poet",
+      "source": "./plugins/poet",
+      "description": "Experimental plugin to test agent user interaction",
+      "version": "0.1.0",
+      "author": {
+        "name": "David Herman"
+      }
     }
   ]
 }
