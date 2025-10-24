@@ -1,7 +1,7 @@
 ---
 name: Rewriting Git Commits
 description: Rewrites a git commit sequence for a changeset to create a clean branch with commits optimized for readability and review
-allowed-tools: Task, Bash, Read, Write, AskUserQuestion
+allowed-tools: Task, Bash, Read, AskUserQuestion
 ---
 
 # Rewriting Git Commits Skill
@@ -18,31 +18,27 @@ This skill uses a **trampoline pattern** with file-based IPC:
 
 1. Create a work directory in `/tmp/historian-{timestamp}/`
 2. Launch **narrator** and **scribe** agents in parallel using Task tool
-3. Poll both agents' status files using bash
+3. **Continuously poll** both agents' status files
 4. When either agent writes a question file, ask the user
 5. Write the user's answer back to the agent's answer file
-6. Wait for narrator to signal completion
-7. Report results to user
+6. **Resume polling** until agents complete
+7. Report final results to user
 
 See [docs/ipc-protocol.md](../../docs/ipc-protocol.md) for the complete IPC protocol.
 
-## Your Task
+## Your Task - Execute These Steps
 
 ### Step 1: Setup Work Directory
 
-Create the IPC infrastructure using bash:
+Use Bash to create the IPC infrastructure. Store the WORK_DIR value for use in all subsequent steps.
 
 ```bash
-# Generate timestamp
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 WORK_DIR="/tmp/historian-$TIMESTAMP"
-
-# Create directory structure
 mkdir -p "$WORK_DIR/narrator"
 mkdir -p "$WORK_DIR/scribe/inbox"
 mkdir -p "$WORK_DIR/scribe/outbox"
 
-# Initialize state file
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 cat > "$WORK_DIR/state.json" <<EOF
 {
@@ -52,250 +48,236 @@ cat > "$WORK_DIR/state.json" <<EOF
 }
 EOF
 
-echo "Work directory created: $WORK_DIR"
+echo "Created work directory: $WORK_DIR"
 ```
 
 ### Step 2: Launch Both Agents in Parallel
 
-**IMPORTANT:** Launch both agents in a **single message** with **two Task tool calls** to run them in parallel:
+**CRITICAL:** Make TWO Task tool calls in a SINGLE message to run agents in parallel.
 
-```
-Task(
-  subagent_type: "historian:narrator",
-  description: "Narrate git commits",
-  prompt: "Work directory: $WORK_DIR
-Changeset: $PROMPT"
-)
+Call Task tool with:
+- `subagent_type: "historian:narrator"`
+- `description: "Narrate git commits"`
+- `prompt: "Work directory: {WORK_DIR from step 1}\nChangeset: {$PROMPT}"`
 
-Task(
-  subagent_type: "historian:scribe",
-  description: "Write commits",
-  prompt: "Work directory: $WORK_DIR"
-)
-```
+Call Task tool with:
+- `subagent_type: "historian:scribe"`
+- `description: "Write commits"`
+- `prompt: "Work directory: {WORK_DIR from step 1}"`
 
-Both agents will now run in parallel. They will communicate via files in `$WORK_DIR`.
+Both agents will now run in parallel.
 
-### Step 3: Trampoline Loop
+### Step 3: Start Polling Loop
 
-After launching both agents, enter a polling loop to monitor their status and handle questions.
+**CRITICAL:** You must now CONTINUOUSLY POLL the filesystem in a loop until the narrator is done.
 
-**IMPORTANT:** Use Bash tool with a while loop to poll the filesystem:
+After EVERY check, you must IMMEDIATELY check again (unless you found a question or completion).
+
+**How to poll:**
+
+1. Use Bash to check for question files and status:
 
 ```bash
-WORK_DIR="/tmp/historian-{timestamp}"  # Use actual timestamp from Step 1
+WORK_DIR="/tmp/historian-{actual-timestamp}"
 
-while true; do
-  # Check for narrator question
-  if [ -f "$WORK_DIR/narrator/question" ]; then
-    # Read the question file
-    source "$WORK_DIR/narrator/question"
+# Check for narrator question
+if [ -f "$WORK_DIR/narrator/question" ]; then
+  echo "NARRATOR_QUESTION=true"
+  cat "$WORK_DIR/narrator/question"
+  exit 0
+fi
 
-    # Store question details for user interaction
-    echo "NARRATOR_QUESTION_FOUND=true" > /tmp/narrator_question_flag
-    echo "CONTEXT=$CONTEXT" > /tmp/narrator_question_data
-    echo "PLAN=$PLAN" >> /tmp/narrator_question_data
-    echo "OPTION_1=$OPTION_1" >> /tmp/narrator_question_data
-    echo "OPTION_2=$OPTION_2" >> /tmp/narrator_question_data
-    echo "OPTION_3=$OPTION_3" >> /tmp/narrator_question_data
+# Check for scribe question
+if [ -f "$WORK_DIR/scribe/question" ]; then
+  echo "SCRIBE_QUESTION=true"
+  cat "$WORK_DIR/scribe/question"
+  exit 0
+fi
 
-    # Exit loop to ask user
-    break
+# Check if narrator is done
+if [ -f "$WORK_DIR/narrator/status" ]; then
+  STATUS=$(cat "$WORK_DIR/narrator/status")
+  if [ "$STATUS" = "done" ]; then
+    echo "NARRATOR_DONE=true"
+    exit 0
   fi
-
-  # Check for scribe question
-  if [ -f "$WORK_DIR/scribe/question" ]; then
-    # Read the question file
-    source "$WORK_DIR/scribe/question"
-
-    # Store question details for user interaction
-    echo "SCRIBE_QUESTION_FOUND=true" > /tmp/scribe_question_flag
-    echo "CONTEXT=$CONTEXT" > /tmp/scribe_question_data
-    echo "OPTION_1=$OPTION_1" >> /tmp/scribe_question_data
-    echo "OPTION_2=$OPTION_2" >> /tmp/scribe_question_data
-    echo "OPTION_3=$OPTION_3" >> /tmp/scribe_question_data
-
-    # Exit loop to ask user
-    break
+  if [ "$STATUS" = "error" ]; then
+    echo "NARRATOR_ERROR=true"
+    exit 0
   fi
+fi
 
-  # Check if narrator is done
-  if [ -f "$WORK_DIR/narrator/status" ]; then
-    STATUS=$(cat "$WORK_DIR/narrator/status")
+# Nothing found, continue polling
+sleep 0.2
+echo "CONTINUE_POLLING=true"
+```
 
-    if [ "$STATUS" = "done" ]; then
-      echo "NARRATOR_DONE=true" > /tmp/narrator_status
-      break
-    fi
+2. **After running the check:**
+   - If output contains `NARRATOR_QUESTION=true`: Go to Step 4 (Handle Narrator Question)
+   - If output contains `SCRIBE_QUESTION=true`: Go to Step 5 (Handle Scribe Question)
+   - If output contains `NARRATOR_DONE=true`: Go to Step 6 (Report Results)
+   - If output contains `NARRATOR_ERROR=true`: Report error and exit
+   - If output contains `CONTINUE_POLLING=true`: **IMMEDIATELY repeat Step 3** (run the check again)
 
-    if [ "$STATUS" = "error" ]; then
-      echo "NARRATOR_ERROR=true" > /tmp/narrator_status
-      break
-    fi
-  fi
+**IMPORTANT:** The bash script includes a brief sleep (0.2 seconds) to avoid excessive polling. This provides good responsiveness (checks 5 times per second) while being CPU-friendly.
 
-  # Sleep before next check
+### Step 4: Handle Narrator Question
+
+When you detect a narrator question:
+
+1. The question file contents were printed by the check script. Parse them to extract:
+   - `CONTEXT` - description of the question
+   - `PLAN` - the commit plan (may be multi-line)
+   - `OPTION_1`, `OPTION_2`, `OPTION_3` - the choices
+
+2. Use AskUserQuestion to present the question:
+   - Show the CONTEXT
+   - Show the PLAN if present (formatted nicely)
+   - Show the numbered options
+   - Ask user to choose 1, 2, or 3
+
+3. Map the user's numeric choice to the option text:
+   - 1 → "Option 1"
+   - 2 → "Option 2"
+   - 3 → "Option 3"
+
+4. Write the answer file and remove the question file:
+
+```bash
+WORK_DIR="/tmp/historian-{actual-timestamp}"
+echo "ANSWER=Option 1" > "$WORK_DIR/narrator/answer"
+rm "$WORK_DIR/narrator/question"
+```
+
+5. **IMMEDIATELY return to Step 3** to resume polling
+
+### Step 5: Handle Scribe Question
+
+When you detect a scribe question:
+
+1. Parse the question file contents to extract CONTEXT and options
+
+2. Use AskUserQuestion to present the question
+
+3. Map user's choice to "Option N" format
+
+4. Write answer and remove question:
+
+```bash
+WORK_DIR="/tmp/historian-{actual-timestamp}"
+echo "ANSWER=Option 1" > "$WORK_DIR/scribe/answer"
+rm "$WORK_DIR/scribe/question"
+```
+
+5. **IMMEDIATELY return to Step 3** to resume polling
+
+### Step 6: Report Results
+
+When narrator is done:
+
+1. Wait for scribe to finish:
+
+```bash
+WORK_DIR="/tmp/historian-{actual-timestamp}"
+while [ -f "$WORK_DIR/scribe/status" ] && [ "$(cat "$WORK_DIR/scribe/status")" != "done" ]; do
   sleep 1
 done
 ```
 
-### Step 4: Handle Questions or Completion
-
-After the polling loop exits, check what triggered it:
-
-**If narrator question found:**
-
-1. Read the question data from `/tmp/narrator_question_data`
-2. Use AskUserQuestion tool to present the question to the user
-3. Format the question nicely, showing:
-   - The CONTEXT
-   - The PLAN (if present)
-   - The numbered options
-4. Get the user's choice (1, 2, or 3)
-5. Map the choice to "Option 1", "Option 2", or "Option 3"
-6. Write the answer using bash:
-   ```bash
-   echo "ANSWER=Option 1" > "$WORK_DIR/narrator/answer"
-   rm "$WORK_DIR/narrator/question"
-   ```
-7. Go back to Step 3 (polling loop)
-
-**If scribe question found:**
-
-1. Read the question data from `/tmp/scribe_question_data`
-2. Use AskUserQuestion tool to present the question
-3. Get the user's choice
-4. Write the answer using bash:
-   ```bash
-   echo "ANSWER=Option 1" > "$WORK_DIR/scribe/answer"
-   rm "$WORK_DIR/scribe/question"
-   ```
-5. Go back to Step 3 (polling loop)
-
-**If narrator done:**
-
-1. Wait for scribe to finish:
-   ```bash
-   while [ -f "$WORK_DIR/scribe/status" ] && [ "$(cat "$WORK_DIR/scribe/status")" != "done" ]; do
-     sleep 1
-   done
-   ```
-2. Read final state and report results (see Step 5)
-
-**If narrator error:**
-
-1. Read transcript for details:
-   ```bash
-   if [ -f "$WORK_DIR/transcript.log" ]; then
-     tail -20 "$WORK_DIR/transcript.log"
-   fi
-   ```
-2. Report error to user
-3. Exit
-
-### Step 5: Report Results
-
-Once both agents are done, read the final state and report to user:
+2. Read the final state:
 
 ```bash
-# Read final state
-if [ -f "$WORK_DIR/state.json" ]; then
-  ORIGINAL_BRANCH=$(jq -r '.original_branch' "$WORK_DIR/state.json")
-  CLEAN_BRANCH=$(jq -r '.clean_branch' "$WORK_DIR/state.json")
-  COMMITS_CREATED=$(jq -r '.commits_created' "$WORK_DIR/state.json")
-
-  echo ""
-  echo "✅ Successfully created clean branch!"
-  echo ""
-  echo "Original branch: $ORIGINAL_BRANCH"
-  echo "Clean branch: $CLEAN_BRANCH"
-  echo "Commits created: $COMMITS_CREATED"
-  echo ""
-  echo "To review the commits:"
-  echo "  git log $CLEAN_BRANCH"
-  echo ""
-  echo "To switch to the clean branch:"
-  echo "  git checkout $CLEAN_BRANCH"
-  echo ""
-  echo "Transcript saved to: $WORK_DIR/transcript.log"
-fi
+WORK_DIR="/tmp/historian-{actual-timestamp}"
+cat "$WORK_DIR/state.json"
 ```
 
-## Important Implementation Notes
+3. Use Read tool to read the state.json file and extract:
+   - `original_branch`
+   - `clean_branch`
+   - `commits_created`
+
+4. Report success to the user:
+
+```
+✅ Successfully created clean branch!
+
+Original branch: {original_branch}
+Clean branch: {clean_branch}
+Commits created: {commits_created}
+
+To review the commits:
+  git log {clean_branch}
+
+To switch to the clean branch:
+  git checkout {clean_branch}
+
+Transcript saved to: {WORK_DIR}/transcript.log
+```
+
+## Critical Implementation Notes
+
+### Continuous Polling
+
+You MUST continuously poll without waiting. The loop looks like:
+
+1. Run check script
+2. If CONTINUE_POLLING → immediately run check script again
+3. If question found → handle it, then immediately run check script again
+4. If done → report results
+
+Do NOT add delays between checks. Do NOT stop polling until narrator is done.
 
 ### Parallel Agent Launch
 
-**CRITICAL:** To launch agents in parallel, you MUST make both Task tool calls in a **single message**. Do NOT make them in separate messages or they will run sequentially.
+Launch both agents in ONE message with TWO Task calls. This makes them run in parallel.
 
-Example of correct parallel launch:
+### Question File Format
+
+Question files use simple key=value format:
 ```
-I'll now launch both agents in parallel.
-
-[Make two Task tool calls in this single message]
+CONTEXT=Description here
+OPTION_1=First choice
+OPTION_2=Second choice
+OPTION_3=Third choice
 ```
 
-### Polling Loop Structure
+For multiline values (like PLAN), they use heredoc format:
+```
+PLAN<<EOF
+Line 1
+Line 2
+EOF
+```
 
-The polling loop runs continuously until:
-- A question file appears (narrator or scribe)
-- Narrator signals done or error
-
-After handling a question, you must **resume the polling loop** to continue monitoring.
-
-### User Interaction
-
-When asking the user questions:
-- Present the context clearly
-- Show the commit plan if included
-- Number the options (1, 2, 3)
-- Map user's numeric choice to "Option N" format for the answer file
-
-### State Management
-
-- Don't modify `state.json` - only read it for final results
-- Both agents will update it as they progress
-- The final state contains the clean branch name and commit count
+Parse these carefully when presenting to the user.
 
 ### Error Handling
 
-If narrator errors:
-- Show the last 20 lines of transcript.log
-- Explain what went wrong
-- Don't try to continue
+If narrator status is "error":
+1. Read transcript.log with tail:
+   ```bash
+   tail -20 "$WORK_DIR/transcript.log"
+   ```
+2. Show the error to the user
+3. Exit
 
-### Work Directory
+## Example Execution
 
-The work directory stays in `/tmp/historian-{timestamp}/` for debugging. Users can inspect:
-- `transcript.log` - complete execution log
-- `state.json` - current state
-- `narrator/status` - narrator status
-- `scribe/status` - scribe status
+1. Setup work dir → `/tmp/historian-20251023-140530/`
+2. Launch narrator + scribe in parallel (single message, 2 Task calls)
+3. Poll: CONTINUE_POLLING → poll again
+4. Poll: CONTINUE_POLLING → poll again
+5. Poll: NARRATOR_QUESTION found
+6. Ask user about commit plan → user chooses "1"
+7. Write answer file
+8. Poll: CONTINUE_POLLING → poll again
+9. Poll: CONTINUE_POLLING → poll again
+10. Poll: SCRIBE_QUESTION found (commit too large)
+11. Ask user how to split → user chooses "1"
+12. Write answer file
+13. Poll: CONTINUE_POLLING → poll again (repeat many times)
+14. Poll: NARRATOR_DONE found
+15. Wait for scribe to finish
+16. Report results
 
-## Example Execution Flow
-
-```
-1. User invokes skill: "Add user authentication"
-2. Skill: Creates /tmp/historian-20251023-140530/
-3. Skill: Launches narrator and scribe in parallel (2 Task calls in 1 message)
-4. Skill: Enters polling loop
-5. Narrator: Validates git, creates branch, analyzes changes, creates plan
-6. Narrator: Writes question file with commit plan
-7. Skill: Detects question file in polling loop
-8. Skill: Asks user "Do you approve this commit plan?" with options
-9. User: Chooses "1" (proceed)
-10. Skill: Writes "ANSWER=Option 1" to narrator/answer
-11. Skill: Resumes polling loop
-12. Narrator: Reads answer, starts sending requests to scribe
-13. Scribe: Creates commits one by one
-14. Scribe: May write question file if commit too large
-15. Skill: Detects scribe question, asks user, writes answer
-16. Skill: Resumes polling loop
-17. Narrator: Completes all commits, validates, writes "done" status
-18. Skill: Detects done status
-19. Skill: Waits for scribe to finish
-20. Skill: Reports success with branch name and commit count
-```
-
-## Expected Outcome
-
-A new git branch with the suffix `-{timestamp}-clean` containing the same changes as the original branch, but organized into logical, well-documented commits that tell a clear story.
+The key is **continuous polling** - you keep checking until done.
