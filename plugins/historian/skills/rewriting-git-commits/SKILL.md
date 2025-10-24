@@ -63,43 +63,37 @@ The narrator will:
 
 ### Step 3: Launch Scribe (with restart loop)
 
-The scribe may run out of tokens before completing all commits. Use a loop to restart it if needed:
+The scribe may run out of tokens before completing all commits. You need to restart it if needed.
+
+**First, check if narrator is done:**
 
 ```bash
 WORK_DIR="/tmp/historian-{actual-timestamp}"
 
-while true; do
-  # Check if narrator is done
-  if [ -f "$WORK_DIR/narrator/status" ] && grep -q "done" "$WORK_DIR/narrator/status"; then
-    echo "Narrator finished - scribe no longer needed"
-    break
-  fi
-
-  # Launch scribe (it will run until done or out of tokens)
-  Task(
-    subagent_type: "historian:scribe",
-    description: "Create commits",
-    prompt: "Work directory: $WORK_DIR"
-  )
-
-  # Check again if narrator is done
-  if [ -f "$WORK_DIR/narrator/status" ] && grep -q "done" "$WORK_DIR/narrator/status"; then
-    echo "Work complete"
-    break
-  fi
-
-  # If we get here, scribe terminated but narrator isn't done yet
-  # Wait a moment and restart scribe
-  echo "Scribe terminated, restarting..."
-  sleep 1
-done
+if [ -f "$WORK_DIR/narrator/status" ] && grep -q "done" "$WORK_DIR/narrator/status"; then
+  echo "Narrator finished - work complete"
+fi
 ```
+
+If narrator is **not done**, launch the scribe:
+
+```
+Task(
+  subagent_type: "historian:scribe",
+  description: "Create commits",
+  prompt: "Work directory: $WORK_DIR"
+)
+```
+
+After the scribe completes, **go back to the beginning of Step 3** and check again if the narrator is done.
+
+**Keep repeating Step 3** until the narrator writes "done" to its status file.
 
 The scribe will:
 - Poll for commit requests from narrator
 - Create each commit
 - Possibly ask you how to split large commits (using AskUserQuestion)
-- Automatically restart if it runs out of tokens
+- Automatically restart if it runs out of tokens (via your loop)
 
 ### Step 4: Report Results
 
