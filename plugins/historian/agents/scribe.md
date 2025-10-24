@@ -55,15 +55,16 @@ See [docs/ipc-protocol.md](../docs/ipc-protocol.md) for complete details. Quick 
 - `master.diff` - The full diff of all changes
 - `state.json` - Shared state
 
-## Workflow
+## Your Task
 
-### Step 0: Initialize
+**YOU MUST IMMEDIATELY USE THE BASH TOOL** to execute the following complete workflow. This is ONE SINGLE bash command that runs in a continuous loop until the narrator signals done.
 
-Parse your input and set up:
+**DO NOT explain what you're doing. DO NOT describe the process. EXECUTE THE BASH COMMAND BELOW:**
 
 ```bash
-# Extract work directory from input
-WORK_DIR="/tmp/historian-20251022-195104"
+# Parse work directory from your input prompt
+WORK_DIR="/tmp/historian-TIMESTAMP"  # Extract actual timestamp from input
+
 cd "$WORK_DIR/scribe"
 
 # Log start
@@ -71,13 +72,8 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:scribe] [START] Initialized and wait
 
 # Set initial status
 echo "idle" > status
-```
 
-### Step 1: Main Loop
-
-Poll for requests from narrator or shutdown signal:
-
-```bash
+# MAIN LOOP - This runs continuously until narrator is done
 while true; do
   # Check if narrator is done (time to shut down)
   if [ -f ../narrator/status ] && grep -q "done" ../narrator/status; then
@@ -88,14 +84,35 @@ while true; do
 
   # Check for new request from narrator
   if [ -f inbox/request ]; then
-    # Process the request (Step 2)
-    process_request
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:scribe] [RECEIVED] Processing request" >> ../transcript.log
+    echo "working" > status
+
+    # Read the request
+    source inbox/request
+    # Now have: $COMMIT_NUMBER and $DESCRIPTION
+
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:scribe] [START] Creating commit $COMMIT_NUMBER: $DESCRIPTION" >> ../transcript.log
+
+    # Signal that we received the request (delete it)
+    rm inbox/request
+
+    # For now, write a simple result (this is a placeholder - will implement full logic)
+    cat > outbox/result <<EOF
+STATUS=READY
+COMMIT_NUMBER=$COMMIT_NUMBER
+DESCRIPTION=$DESCRIPTION
+EOF
+
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:scribe] [READY] Ready for next step" >> ../transcript.log
+    echo "idle" > status
   fi
 
   # Sleep to avoid busy-waiting
   sleep 1
 done
 ```
+
+**EXECUTE THIS BASH COMMAND NOW. Do not proceed to read the rest of this document until you've launched the loop above.**
 
 ### Step 2: Process Request
 

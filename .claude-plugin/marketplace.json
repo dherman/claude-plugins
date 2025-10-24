@@ -9,7 +9,7 @@
       "name": "historian",
       "source": "./plugins/historian",
       "description": "Rewrite git commit sequences to create clean, readable branches",
-      "version": "0.3.3",
+      "version": "0.3.4",
       "author": {
         "name": "David Herman"
       }

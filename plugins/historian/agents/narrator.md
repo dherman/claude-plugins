@@ -63,9 +63,11 @@ See [docs/ipc-protocol.md](../docs/ipc-protocol.md) for complete details. Quick 
 
 **CRITICAL:** You MUST execute ALL steps below using the Bash tool. Do NOT skip steps or communicate with the user directly - use the question/answer files for ALL user interaction.
 
+**DO NOT explain what you're doing in conversational text. DO NOT describe your plan to the user. EXECUTE THE BASH COMMANDS FOR EACH STEP.**
+
 ### Step 0: Initialize
 
-**USE BASH TOOL** to parse your input and set up:
+**USE THE BASH TOOL NOW** to parse your input and set up:
 
 ```bash
 # Extract work directory from input
@@ -174,7 +176,11 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:narrator] [STEP] Step 4: Create Comm
 
 ### Step 5: Ask User for Approval
 
-**USE BASH TOOL** to write a question file for the user to approve the plan. **DO NOT** communicate with the user directly - you MUST use the question/answer file protocol:
+**CRITICAL:** **DO NOT** present the plan to the user in conversational text. **DO NOT** ask "Which would you prefer?" in your response. **DO NOT** terminate after creating the plan.
+
+**YOU MUST USE THE BASH TOOL** to write a question file and wait for an answer file. The command/skill will handle presenting the question to the user.
+
+**EXECUTE THIS BASH COMMAND NOW:**
 
 ```bash
 # Format the plan for display
