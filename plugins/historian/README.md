@@ -23,12 +23,7 @@ The plugin uses a **trampoline pattern** with **file-based IPC** to coordinate t
 
 #### 1. Slash Command: `/narrate`
 
-The trampoline coordinator that:
-- Sets up a work directory in `/tmp/historian-{timestamp}/`
-- Launches narrator and scribe agents in parallel
-- Monitors their status via files
-- Handles user questions from either agent
-- Reports final results
+A lightweight wrapper that invokes the "Rewriting Git Commits" skill.
 
 **Usage:**
 ```bash
@@ -39,7 +34,14 @@ The trampoline coordinator that:
 
 #### 2. Skill: Rewriting Git Commits
 
-A lightweight wrapper that delegates to `/narrate`.
+The trampoline coordinator that:
+- Sets up a work directory in `/tmp/historian-{timestamp}/`
+- Launches narrator and scribe agents in parallel
+- Monitors their status via files (polling loop)
+- Handles user questions from either agent
+- Reports final results
+
+This skill runs as a long-lived agent that can execute bash polling loops to monitor the parallel agents.
 
 **Location:** `skills/rewriting-git-commits/SKILL.md`
 
@@ -101,46 +103,58 @@ See [docs/ipc-protocol.md](docs/ipc-protocol.md) for complete details.
 
 1. **You invoke:** `/narrate "Description of your changeset"`
 
-2. **Command sets up IPC:**
+2. **Command invokes skill:**
+   - Delegates to "Rewriting Git Commits" skill
+
+3. **Skill sets up IPC:**
    - Creates work directory `/tmp/historian-{timestamp}/`
    - Initializes file structure for communication
 
-3. **Launches agents in parallel:**
+4. **Skill launches agents in parallel:**
+   - Makes two Task calls in single message
    - Narrator agent starts planning
    - Scribe agent starts waiting for requests
 
-4. **Narrator validates and prepares:**
+5. **Skill enters polling loop:**
+   - Bash while loop checks for question files and status
+   - Sleeps 1 second between checks
+
+6. **Narrator validates and prepares:**
    - Checks git working tree is clean
    - Creates clean branch: `{your-branch}-{timestamp}-clean`
    - Generates master diff of all changes
 
-5. **Narrator creates commit plan:**
+7. **Narrator creates commit plan:**
    - Analyzes changes and develops a story
    - Identifies key themes and logical layers
    - Creates detailed commit plan
    - Breaks into discrete, logical commits
 
-6. **User reviews and approves:**
+8. **User reviews and approves:**
    - Narrator writes question file
-   - Command presents plan to you
+   - Skill detects question in polling loop
+   - Skill presents plan to you via AskUserQuestion
    - You approve or cancel
+   - Skill writes answer file
+   - Skill resumes polling loop
 
-7. **Execution loop:**
+9. **Execution loop:**
    - Narrator sends commit requests to scribe via `inbox/request` files
    - Scribe creates each commit
    - Scribe writes results to `outbox/result` files
    - If commit is too large, scribe asks user how to split
-   - Command handles all user questions via file IPC
+   - Skill handles all user questions via polling loop
 
-8. **Validation:**
-   - Narrator compares clean branch to original
-   - Ensures contents are identical
-   - Writes "done" status
+10. **Validation:**
+    - Narrator compares clean branch to original
+    - Ensures contents are identical
+    - Writes "done" status
 
-9. **Command reports results:**
-   - Both agents shut down cleanly
-   - You get clean branch name and commit count
-   - Transcript available for debugging
+11. **Skill reports results:**
+    - Detects "done" status in polling loop
+    - Waits for both agents to shut down cleanly
+    - Reports clean branch name and commit count
+    - Shows transcript location for debugging
 
 ### Advantages of This Architecture
 
@@ -162,11 +176,11 @@ If the scribe agent detects a commit is too large:
    OPTION_3=Four commits: (1) schema (2) service (3) middleware (4) UI
    ```
 
-2. **Command detects question and asks you**
+2. **Skill detects question in polling loop and asks you**
 
 3. **You choose Option 1**
 
-4. **Command writes answer file:**
+4. **Skill writes answer file:**
    ```
    ANSWER=Option 1
    ```
@@ -195,13 +209,13 @@ historian/
 ├── .claude-plugin/
 │   └── plugin.json                    # Plugin manifest
 ├── commands/
-│   └── narrate.md                     # Trampoline coordinator
+│   └── narrate.md                     # Lightweight wrapper
 ├── skills/
 │   └── rewriting-git-commits/
-│       └── SKILL.md                   # Wrapper around /narrate
+│       └── SKILL.md                   # Trampoline coordinator
 ├── agents/
 │   ├── narrator.md                    # Main orchestrator (cyan)
-│   └── scribe.md               # Commit creator (orange)
+│   └── scribe.md                      # Commit creator (orange)
 ├── docs/
 │   ├── ipc-protocol.md                # File-based IPC specification
 │   └── transcript-logging.md          # Transcript format
