@@ -53,49 +53,53 @@ Work directory: /tmp/historian-20251024-003129
 
 When you first run or state.phase is "idle":
 
-1. **Check if narrator is done:**
-   ```bash
-   WORK_DIR="/tmp/historian-20251024-003129"  # From input
-   cd "$WORK_DIR/scribe"
+**YOU MUST POLL until you find work to do OR narrator asks a question.**
 
-   if [ -f ../narrator/status ] && grep -q "done" ../narrator/status; then
-     echo "done" > status
-     cat > state.json <<EOF
-{"phase": "done"}
-EOF
-     echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:scribe] [DONE] Narrator finished" >> ../transcript.log
-     exit 0
-   fi
-   ```
+Use a bash while loop with sleep to poll:
 
-2. **Check for new request:**
-   ```bash
-   if [ ! -f inbox/request ]; then
-     # No request yet, initialize state if needed and exit
-     if [ ! -f state.json ]; then
-       echo "idle" > status
-       cat > state.json <<EOF
+```bash
+WORK_DIR="/tmp/historian-20251024-003129"  # From input
+cd "$WORK_DIR/scribe"
+
+# Initialize state if needed
+if [ ! -f state.json ]; then
+  echo "idle" > status
+  cat > state.json <<EOF
 {"phase": "idle"}
 EOF
-       echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:scribe] [INIT] Initialized" >> ../transcript.log
-     fi
-     exit 0
-   fi
-   ```
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:scribe] [INIT] Initialized, polling for work" >> ../transcript.log
+fi
 
-3. **Request found, load it:**
-   ```bash
-   source inbox/request
-   # Now have: $COMMIT_NUMBER and $DESCRIPTION
-   rm inbox/request
+# POLLING LOOP - Wait for work or narrator question
+while true; do
+  # Check if narrator is done
+  if [ -f ../narrator/status ] && grep -q "done" ../narrator/status; then
+    echo "done" > status
+    cat > state.json <<EOF
+{"phase": "done"}
+EOF
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:scribe] [DONE] Narrator finished" >> ../transcript.log
+    exit 0
+  fi
 
-   echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:scribe] [REQUEST] Processing commit $COMMIT_NUMBER: $DESCRIPTION" >> ../transcript.log
-   ```
+  # Check if narrator asked a question (should exit to let skill handle it)
+  if [ -f ../narrator/question ]; then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:scribe] [EXIT] Narrator has question, exiting" >> ../transcript.log
+    exit 0
+  fi
 
-4. **Save request to state and advance to processing:**
-   ```bash
-   echo "processing" > status
-   cat > state.json <<EOF
+  # Check for new request
+  if [ -f inbox/request ]; then
+    # Found work! Process it
+    source inbox/request
+    # Now have: $COMMIT_NUMBER and $DESCRIPTION
+    rm inbox/request
+
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [AGENT:scribe] [REQUEST] Processing commit $COMMIT_NUMBER: $DESCRIPTION" >> ../transcript.log
+
+    # Save request to state and advance to processing
+    echo "processing" > status
+    cat > state.json <<EOF
 {
   "phase": "processing",
   "current_request": {
@@ -104,9 +108,16 @@ EOF
   }
 }
 EOF
-   ```
+    # Break out of polling loop to process
+    break
+  fi
 
-5. **Exit** - skill will restart you to process
+  # Nothing to do yet, sleep and check again
+  sleep 0.2
+done
+```
+
+Now continue to processing phase (below)...
 
 ### Phase: "processing"
 

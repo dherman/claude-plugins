@@ -78,10 +78,12 @@ A **stateful, resumable agent** that creates individual commits. Each invocation
 4. **Exits** - skill will restart it
 
 **State Machine Phases:**
-- `idle` - Check for narrator done or new request in inbox
+- `idle` - **Poll** until finding: work in inbox, narrator done, or narrator question (exit to let skill handle)
 - `processing` - Read master diff, extract changes, create commit, write result
 - `waiting_for_user` - (Future) Ask how to split large commits
 - `done` - Narrator finished, shut down
+
+**Key behavior:** When idle, scribe polls in a while loop (checking every 0.2s) until it discovers work to do OR detects that narrator asked a question. If narrator asked a question, scribe exits immediately to allow the skill to handle user interaction.
 
 Communicates via files in `scribe/` directory.
 
