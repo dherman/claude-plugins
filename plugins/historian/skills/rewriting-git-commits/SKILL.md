@@ -108,22 +108,30 @@ fi
 
 If output contains `QUESTION_FOUND=true`:
 
-1. Parse the question file contents:
-   - Extract `CONTEXT`, `PLAN`, `OPTION_1`, `OPTION_2`, `OPTION_3`
-   - Handle heredoc format for PLAN
+**CRITICAL: You MUST actually use the AskUserQuestion tool. DO NOT skip this step. DO NOT assume an answer.**
 
-2. Use AskUserQuestion to present:
-   - Show CONTEXT
-   - Show PLAN (formatted nicely)
-   - Show numbered options
-   - Get user's choice (1, 2, or 3)
+1. Parse the question file contents from the bash output:
+   - Extract `CONTEXT`, `PLAN`, `OPTION_1`, `OPTION_2`
+   - The PLAN will be in heredoc format between `PLAN<<PLANEOF` and `PLANEOF`
 
-3. Write answer file:
+2. **USE THE AskUserQuestion TOOL** to present the question:
+   - Format the message clearly
+   - Show the CONTEXT
+   - Show the PLAN (formatted as a numbered list)
+   - Show the two options
+   - Ask the user to choose
+
+3. **WAIT for the user's response** from AskUserQuestion
+
+4. Map the user's choice to the answer format and write it:
    ```bash
    WORK_DIR="/tmp/historian-{actual-timestamp}"
-   # Map user's choice to "Option N"
+   # If user chose option 1: ANSWER="Option 1"
+   # If user chose option 2: ANSWER="Option 2"
    echo "ANSWER=Option 1" > "$WORK_DIR/narrator/answer"
    ```
+
+**DO NOT PROCEED** until you have actually asked the user and received their answer.
 
 #### 2.4: Check for Completion
 
