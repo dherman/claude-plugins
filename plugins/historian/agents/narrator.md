@@ -132,32 +132,21 @@ For each commit in your plan, send a request to the scribe and wait for the resu
 
 ```bash
 WORK_DIR="/tmp/historian-20251024-003129"
+PLUGIN_ROOT="..."  # From Step 1
+
 COMMIT_NUM=1
 DESCRIPTION="Add user authentication models"
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Requesting commit $COMMIT_NUM: $DESCRIPTION" >> "$WORK_DIR/transcript.log"
-
-# Send request to scribe
-cat > "$WORK_DIR/scribe/inbox/request" <<EOF
-COMMIT_NUMBER=$COMMIT_NUM
-DESCRIPTION=$DESCRIPTION
-EOF
-
-# Wait for scribe to complete (poll for result)
-while [ ! -f "$WORK_DIR/scribe/outbox/result" ]; do
-  sleep 0.5
-done
-
-# Read result
-cat "$WORK_DIR/scribe/outbox/result"
+# Send request and wait for result
+"$PLUGIN_ROOT/scripts/narrator-send-request.sh" "$WORK_DIR" "$COMMIT_NUM" "$DESCRIPTION"
 ```
 
-The result will show STATUS=SUCCESS or STATUS=ERROR. Parse it, then:
+The script outputs the result (STATUS=SUCCESS or STATUS=ERROR). Parse it, then clean up:
 
 ```bash
 WORK_DIR="/tmp/historian-20251024-003129"
 
-# After successfully reading the result
+# Remove the result file
 rm "$WORK_DIR/scribe/outbox/result"
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Commit 1 created successfully" >> "$WORK_DIR/transcript.log"
@@ -169,24 +158,15 @@ Keep track of how many commits you've created so you can report the total at the
 
 ## Step 6: Validate Results
 
-Compare the clean branch to the original:
+Use the validation script to compare branches:
 
 ```bash
-# Compare tree hashes
-git checkout "$CLEAN_BRANCH"
-CLEAN_TREE=$(git rev-parse HEAD^{tree})
+WORK_DIR="/tmp/historian-20251024-003129"
+PLUGIN_ROOT="..."  # From Step 1
+CLEAN_BRANCH="..."  # From Step 1
+BRANCH="..."  # From Step 1
 
-git checkout "$BRANCH"
-ORIGINAL_TREE=$(git rev-parse HEAD^{tree})
-
-if [ "$CLEAN_TREE" != "$ORIGINAL_TREE" ]; then
-  echo "error" > "$WORK_DIR/narrator/status"
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] ERROR: Branch trees do not match!" >> "$WORK_DIR/transcript.log"
-  git diff --stat "$CLEAN_BRANCH" "$BRANCH"
-  exit 1
-fi
-
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Validation successful - trees match" >> "$WORK_DIR/transcript.log"
+"$PLUGIN_ROOT/scripts/narrator-validate.sh" "$WORK_DIR" "$CLEAN_BRANCH" "$BRANCH"
 ```
 
 ## Step 7: Mark Complete
