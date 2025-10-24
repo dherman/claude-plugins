@@ -141,18 +141,26 @@ DESCRIPTION="Add user authentication models"
 "$PLUGIN_ROOT/scripts/narrator-send-request.sh" "$WORK_DIR" "$COMMIT_NUM" "$DESCRIPTION"
 ```
 
-The script outputs the result (STATUS=SUCCESS or STATUS=ERROR). Parse it, then clean up:
+The script outputs the result (STATUS=SUCCESS or STATUS=ERROR). **Check the status and handle errors:**
 
 ```bash
 WORK_DIR="/tmp/historian-20251024-003129"
 
-# Remove the result file
-rm "$WORK_DIR/scribe/outbox/result"
-
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Commit 1 created successfully" >> "$WORK_DIR/transcript.log"
+# Read the result to check status
+if grep -q "STATUS=SUCCESS" "$WORK_DIR/scribe/outbox/result"; then
+  # Success - clean up and continue
+  rm "$WORK_DIR/scribe/outbox/result"
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Commit 1 created successfully" >> "$WORK_DIR/transcript.log"
+else
+  # Error - fail fast
+  cat "$WORK_DIR/scribe/outbox/result" >> "$WORK_DIR/transcript.log"
+  echo "error" > "$WORK_DIR/narrator/status"
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] ERROR: Scribe failed, exiting" >> "$WORK_DIR/transcript.log"
+  exit 1
+fi
 ```
 
-**Repeat this process for each commit in your plan.** Use multiple bash tool calls - one to send the request and wait, another to clean up, then repeat for the next commit.
+**Repeat this process for each commit in your plan.** Use multiple bash tool calls - one to send the request and wait, another to check status and clean up, then repeat for the next commit. **Stop immediately if any commit fails.**
 
 Keep track of how many commits you've created so you can report the total at the end.
 
@@ -197,4 +205,23 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Complete! Created $COMMITS_CREAT
 - **Log to transcript** for debugging
 - **Write "done" status when finished** so scribe knows to exit
 
-The scribe is running in parallel, continuously checking for your requests and processing them. You send requests one by one and wait for results.
+## Critical Constraints
+
+**NEVER create commits yourself.** Your job is ONLY to:
+1. Analyze changes and create a plan
+2. Send requests to the scribe
+3. Wait for the scribe's results
+4. Validate the final branch
+
+**If the scribe returns an error:**
+1. Write "error" to `$WORK_DIR/narrator/status`
+2. Log the error to transcript
+3. Exit immediately
+
+**DO NOT:**
+- Create commits with `git commit`
+- Apply changes with `git apply` or Write/Edit tools
+- Try to "help" the scribe by doing its work
+- Continue after an error - fail fast
+
+The scribe is running in parallel, continuously checking for your requests and processing them. You send requests one by one and wait for results. If anything goes wrong, exit immediately.
