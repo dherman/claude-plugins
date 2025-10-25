@@ -30,8 +30,8 @@ Use the setup helper script to validate the repository and prepare materials:
 WORK_DIR="/tmp/historian-20251024-003129"  # From your input
 CHANGESET="Add user authentication"         # From your input
 
-# Run setup script from work directory (copied there by the skill)
-eval "$("$WORK_DIR/scripts/narrator-setup.sh" "$WORK_DIR" "$CHANGESET")"
+# Run setup script (it figures out WORK_DIR from its own location)
+eval "$("$WORK_DIR/scripts/narrator-setup.sh" "$CHANGESET")"
 
 # Now you have: BRANCH, CLEAN_BRANCH, BASE_COMMIT, TIMESTAMP
 ```
@@ -70,7 +70,7 @@ Wait for the user's response. If they say no or cancel, clean up and exit:
 git checkout "$BRANCH"
 git branch -D "$CLEAN_BRANCH"
 echo "error" > "$WORK_DIR/narrator/status"
-"$WORK_DIR/scripts/log.sh" "$WORK_DIR" "NARRATOR" "User cancelled"
+"$WORK_DIR/scripts/log.sh" "NARRATOR" "User cancelled"
 exit 1
 ```
 
@@ -89,7 +89,7 @@ COMMIT_NUM=1
 DESCRIPTION="Add user authentication models"
 
 # Send request and wait for result
-"$WORK_DIR/scripts/narrator-send-request.sh" "$WORK_DIR" "$COMMIT_NUM" "$DESCRIPTION"
+"$WORK_DIR/scripts/narrator-send-request.sh" "$COMMIT_NUM" "$DESCRIPTION"
 ```
 
 The script outputs the result (STATUS=SUCCESS or STATUS=ERROR). **Check the status and handle errors:**
@@ -101,12 +101,12 @@ WORK_DIR="/tmp/historian-20251024-003129"
 if grep -q "STATUS=SUCCESS" "$WORK_DIR/scribe/outbox/result"; then
   # Success - clean up and continue
   rm "$WORK_DIR/scribe/outbox/result"
-  "$WORK_DIR/scripts/log.sh" "$WORK_DIR" "NARRATOR" "Commit 1 created successfully"
+  "$WORK_DIR/scripts/log.sh" "NARRATOR" "Commit 1 created successfully"
 else
   # Error - fail fast
   cat "$WORK_DIR/scribe/outbox/result" >> "$WORK_DIR/transcript.log"
   echo "error" > "$WORK_DIR/narrator/status"
-  "$WORK_DIR/scripts/log.sh" "$WORK_DIR" "NARRATOR" "ERROR: Scribe failed, exiting"
+  "$WORK_DIR/scripts/log.sh" "NARRATOR" "ERROR: Scribe failed, exiting"
   exit 1
 fi
 ```
@@ -124,7 +124,7 @@ WORK_DIR="/tmp/historian-20251024-003129"
 CLEAN_BRANCH="..."  # From Step 1
 BRANCH="..."  # From Step 1
 
-"$WORK_DIR/scripts/narrator-validate.sh" "$WORK_DIR" "$CLEAN_BRANCH" "$BRANCH"
+"$WORK_DIR/scripts/narrator-validate.sh" "$CLEAN_BRANCH" "$BRANCH"
 ```
 
 ## Step 7: Mark Complete
@@ -143,7 +143,7 @@ cat > "$WORK_DIR/state.json" <<EOF
 EOF
 
 echo "done" > "$WORK_DIR/narrator/status"
-"$WORK_DIR/scripts/log.sh" "$WORK_DIR" "NARRATOR" "Complete! Created $COMMITS_CREATED commits"
+"$WORK_DIR/scripts/log.sh" "NARRATOR" "Complete! Created $COMMITS_CREATED commits"
 ```
 
 ## Important Notes

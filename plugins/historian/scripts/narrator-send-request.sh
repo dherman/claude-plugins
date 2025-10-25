@@ -1,14 +1,16 @@
 #!/bin/bash
 # Send a commit request to scribe and wait for result
-# Usage: narrator-send-request.sh <WORK_DIR> <COMMIT_NUM> <DESCRIPTION>
+# Usage: narrator-send-request.sh <COMMIT_NUM> <DESCRIPTION>
 
 set -e
 
-WORK_DIR="$1"
-COMMIT_NUM="$2"
-DESCRIPTION="$3"
+# Determine work directory from script location
+WORK_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
-"$WORK_DIR/scripts/log.sh" "$WORK_DIR" "NARRATOR" "Requesting commit $COMMIT_NUM: $DESCRIPTION"
+COMMIT_NUM="$1"
+DESCRIPTION="$2"
+
+"$WORK_DIR/scripts/log.sh" "NARRATOR" "Requesting commit $COMMIT_NUM: $DESCRIPTION"
 
 # Send request to scribe
 cat > "$WORK_DIR/scribe/inbox/request" <<EOF

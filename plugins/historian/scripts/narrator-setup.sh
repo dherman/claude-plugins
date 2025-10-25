@@ -1,19 +1,21 @@
 #!/bin/bash
 # Narrator setup script - validates git repo and prepares materials
-# Usage: narrator-setup.sh <WORK_DIR> <CHANGESET>
+# Usage: narrator-setup.sh <CHANGESET>
 
 set -e
 
-WORK_DIR="$1"
-CHANGESET="$2"
+# Determine work directory from script location
+WORK_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
+CHANGESET="$1"
 
 # ===== STEP 1: VALIDATE READINESS =====
-"$WORK_DIR/scripts/log.sh" "$WORK_DIR" "NARRATOR" "Validating git repository"
+"$WORK_DIR/scripts/log.sh" "NARRATOR" "Validating git repository"
 
 # Check working tree is clean
 if ! git diff-index --quiet HEAD --; then
   echo "error" > "$WORK_DIR/narrator/status"
-  "$WORK_DIR/scripts/log.sh" "$WORK_DIR" "NARRATOR" "ERROR: Working tree not clean"
+  "$WORK_DIR/scripts/log.sh" "NARRATOR" "ERROR: Working tree not clean"
   exit 1
 fi
 
@@ -21,14 +23,14 @@ fi
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 if [ "$BRANCH" = "HEAD" ]; then
   echo "error" > "$WORK_DIR/narrator/status"
-  "$WORK_DIR/scripts/log.sh" "$WORK_DIR" "NARRATOR" "ERROR: Detached HEAD"
+  "$WORK_DIR/scripts/log.sh" "NARRATOR" "ERROR: Detached HEAD"
   exit 1
 fi
 
-"$WORK_DIR/scripts/log.sh" "$WORK_DIR" "NARRATOR" "Git validation passed, on branch: $BRANCH"
+"$WORK_DIR/scripts/log.sh" "NARRATOR" "Git validation passed, on branch: $BRANCH"
 
 # ===== STEP 2: PREPARE MATERIALS =====
-"$WORK_DIR/scripts/log.sh" "$WORK_DIR" "NARRATOR" "Preparing materials"
+"$WORK_DIR/scripts/log.sh" "NARRATOR" "Preparing materials"
 
 # Get base commit
 BASE_COMMIT=$(git merge-base HEAD origin/main 2>/dev/null || git merge-base HEAD main)
@@ -54,7 +56,7 @@ cat > "$WORK_DIR/state.json" <<EOF
 }
 EOF
 
-"$WORK_DIR/scripts/log.sh" "$WORK_DIR" "NARRATOR" "Created clean branch: $CLEAN_BRANCH"
+"$WORK_DIR/scripts/log.sh" "NARRATOR" "Created clean branch: $CLEAN_BRANCH"
 
 # Output variables for the caller to source
 echo "BRANCH=$BRANCH"

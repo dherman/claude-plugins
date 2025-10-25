@@ -28,24 +28,23 @@ Log that you're starting:
 ```bash
 WORK_DIR="/tmp/historian-20251024-003129"  # Extract from your input prompt
 
-"$WORK_DIR/scripts/log.sh" "$WORK_DIR" "SCRIBE" "Starting polling loop"
+"$WORK_DIR/scripts/log.sh" "SCRIBE" "Starting polling loop"
 ```
 
-### Step 2: Check for Work
+### Step 2: Receive Next Request
 
-Use the helper script to check if there's work or if the narrator is done:
+Use the helper script to poll for the next request from narrator. **This script will block** until the narrator sends work or signals completion:
 
 ```bash
 WORK_DIR="/tmp/historian-20251024-003129"
 
-"$WORK_DIR/scripts/scribe-check-work.sh" "$WORK_DIR"
+"$WORK_DIR/scripts/scribe-receive-request.sh"
 echo "EXIT_CODE=$?"
 ```
 
 The script will return different exit codes:
 - **Exit code 99**: Narrator is done
-- **Exit code 0 with output**: Request found
-- **Exit code 0 with no output**: No work yet
+- **Exit code 0**: Request received
 
 Check the output:
 
@@ -58,8 +57,6 @@ DESCRIPTION=Add user authentication
 EXIT_CODE=0
 ```
 → Parse it and continue to Step 3.
-
-**If you only see `EXIT_CODE=0` with no other output** → No work yet, **go back to Step 2** and check again.
 
 ### Step 3: Process the Request
 
@@ -101,7 +98,7 @@ COMMIT_HASH="..."  # From previous step
 DESCRIPTION="..."  # From Step 2
 FILES_CHANGED="..."  # From previous step
 
-"$WORK_DIR/scripts/scribe-write-result.sh" "$WORK_DIR" "SUCCESS" "$COMMIT_HASH" "$DESCRIPTION" "$FILES_CHANGED"
+"$WORK_DIR/scripts/scribe-write-result.sh" "SUCCESS" "$COMMIT_HASH" "$DESCRIPTION" "$FILES_CHANGED"
 ```
 
 ### Step 4: Loop Back
@@ -120,13 +117,10 @@ After processing a request (or finding no work), **go back to Step 2** and check
 
 ## Example Flow
 
-1. Check for work → no request found
-2. Check for work → no request found
-3. Check for work → found request! (commit #1)
-4. Process commit #1 → write result
-5. Check for work → found request! (commit #2)
-6. Process commit #2 → write result
-7. Check for work → no request found
-8. Check for work → narrator done, exit
+1. Wait for request → receive request for commit #1
+2. Process commit #1 → write result
+3. Wait for request → receive request for commit #2
+4. Process commit #2 → write result
+5. Wait for request → narrator signals done, exit
 
-You're running in parallel with the narrator. Keep checking for work until the narrator signals completion.
+You're running in parallel with the narrator. The receive script polls continuously, so you just process requests as they arrive.

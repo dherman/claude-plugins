@@ -1,12 +1,14 @@
 #!/bin/bash
 # Write result file for narrator
-# Usage: scribe-write-result.sh <WORK_DIR> <STATUS> <COMMIT_HASH> <MESSAGE> <FILES_CHANGED>
+# Usage: scribe-write-result.sh <STATUS> <COMMIT_HASH> <MESSAGE> <FILES_CHANGED>
 
-WORK_DIR="$1"
-STATUS="$2"
-COMMIT_HASH="$3"
-MESSAGE="$4"
-FILES_CHANGED="$5"
+# Determine work directory from script location
+WORK_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
+STATUS="$1"
+COMMIT_HASH="$2"
+MESSAGE="$3"
+FILES_CHANGED="$4"
 
 cat > "$WORK_DIR/scribe/outbox/result" <<EOF
 STATUS=$STATUS
@@ -15,4 +17,4 @@ MESSAGE=$MESSAGE
 FILES_CHANGED=$FILES_CHANGED
 EOF
 
-"$WORK_DIR/scripts/log.sh" "$WORK_DIR" "SCRIBE" "Sent result to narrator: $STATUS"
+"$WORK_DIR/scripts/log.sh" "SCRIBE" "Sent result to narrator: $STATUS"
