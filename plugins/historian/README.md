@@ -76,14 +76,19 @@ Agents coordinate through files in `/tmp/historian-{timestamp}/`:
   ├── transcript.log              # Shared log
   ├── master.diff                 # All changes
   ├── state.json                  # Final results
+  ├── scripts/                    # Helper scripts (copied at runtime)
+  │   ├── log.sh
+  │   ├── narrator-setup.sh
+  │   ├── narrator-send-request.sh
+  │   ├── narrator-validate.sh
+  │   ├── scribe-receive-request.sh
+  │   └── scribe-write-result.sh
   ├── narrator/
   │   └── status                  # "done" | "error"
   └── scribe/
       ├── inbox/request           # Requests from narrator
       └── outbox/result           # Results to narrator
 ```
-
-See [docs/ipc-protocol.md](docs/ipc-protocol.md) for complete details.
 
 ## How It Works
 
@@ -167,16 +172,20 @@ historian/
 ├── .claude-plugin/
 │   └── plugin.json                    # Plugin manifest
 ├── commands/
-│   └── narrate.md                     # Lightweight wrapper
+│   └── narrate.md                     # Slash command wrapper
 ├── skills/
 │   └── rewriting-git-commits/
-│       └── SKILL.md                   # Trampoline coordinator
+│       └── SKILL.md                   # Coordinator skill
 ├── agents/
 │   ├── narrator.md                    # Main orchestrator (cyan)
 │   └── scribe.md                      # Commit creator (orange)
-├── docs/
-│   ├── ipc-protocol.md                # File-based IPC specification
-│   └── transcript-logging.md          # Transcript format
+├── scripts/                            # Helper scripts for agents
+│   ├── log.sh                         # Centralized logging
+│   ├── narrator-setup.sh              # Git validation and prep
+│   ├── narrator-send-request.sh       # Send request and wait
+│   ├── narrator-validate.sh           # Branch validation
+│   ├── scribe-receive-request.sh      # Poll for next request
+│   └── scribe-write-result.sh         # Write result file
 └── settings.json                       # Recommended permissions
 ```
 
