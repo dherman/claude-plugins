@@ -8,7 +8,7 @@ WORK_DIR="$1"
 COMMIT_NUM="$2"
 DESCRIPTION="$3"
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Requesting commit $COMMIT_NUM: $DESCRIPTION" >> "$WORK_DIR/transcript.log"
+"$WORK_DIR/scripts/log.sh" "$WORK_DIR" "NARRATOR" "Requesting commit $COMMIT_NUM: $DESCRIPTION"
 
 # Send request to scribe
 cat > "$WORK_DIR/scribe/inbox/request" <<EOF

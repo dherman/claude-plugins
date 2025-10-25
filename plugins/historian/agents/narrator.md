@@ -70,7 +70,7 @@ Wait for the user's response. If they say no or cancel, clean up and exit:
 git checkout "$BRANCH"
 git branch -D "$CLEAN_BRANCH"
 echo "error" > "$WORK_DIR/narrator/status"
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] User cancelled" >> "$WORK_DIR/transcript.log"
+"$WORK_DIR/scripts/log.sh" "$WORK_DIR" "NARRATOR" "User cancelled"
 exit 1
 ```
 
@@ -101,12 +101,12 @@ WORK_DIR="/tmp/historian-20251024-003129"
 if grep -q "STATUS=SUCCESS" "$WORK_DIR/scribe/outbox/result"; then
   # Success - clean up and continue
   rm "$WORK_DIR/scribe/outbox/result"
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Commit 1 created successfully" >> "$WORK_DIR/transcript.log"
+  "$WORK_DIR/scripts/log.sh" "$WORK_DIR" "NARRATOR" "Commit 1 created successfully"
 else
   # Error - fail fast
   cat "$WORK_DIR/scribe/outbox/result" >> "$WORK_DIR/transcript.log"
   echo "error" > "$WORK_DIR/narrator/status"
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] ERROR: Scribe failed, exiting" >> "$WORK_DIR/transcript.log"
+  "$WORK_DIR/scripts/log.sh" "$WORK_DIR" "NARRATOR" "ERROR: Scribe failed, exiting"
   exit 1
 fi
 ```
@@ -143,7 +143,7 @@ cat > "$WORK_DIR/state.json" <<EOF
 EOF
 
 echo "done" > "$WORK_DIR/narrator/status"
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Complete! Created $COMMITS_CREATED commits" >> "$WORK_DIR/transcript.log"
+"$WORK_DIR/scripts/log.sh" "$WORK_DIR" "NARRATOR" "Complete! Created $COMMITS_CREATED commits"
 ```
 
 ## Important Notes

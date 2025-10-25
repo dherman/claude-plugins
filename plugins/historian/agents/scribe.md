@@ -19,7 +19,7 @@ Work directory: /tmp/historian-20251024-003129
 
 ## Your Task
 
-Run a continuous loop checking for work and processing it. Use **multiple tool calls** in sequence - don't try to do everything in one bash script.
+Run a continuous loop checking for work and processing it. Use **multiple tool calls** in sequence.
 
 ### Step 1: Initial Setup
 
@@ -28,71 +28,61 @@ Log that you're starting:
 ```bash
 WORK_DIR="/tmp/historian-20251024-003129"  # Extract from your input prompt
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SCRIBE] Starting polling loop" >> "$WORK_DIR/transcript.log"
+"$WORK_DIR/scripts/log.sh" "$WORK_DIR" "SCRIBE" "Starting polling loop"
 ```
 
-### Step 2: Check for Completion
+### Step 2: Check for Work
 
-Use Bash to check if the narrator is done:
+Use the helper script to check if there's work or if the narrator is done:
 
 ```bash
 WORK_DIR="/tmp/historian-20251024-003129"
 
-if [ -f "$WORK_DIR/narrator/status" ] && grep -q "done" "$WORK_DIR/narrator/status"; then
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SCRIBE] Narrator finished, exiting" >> "$WORK_DIR/transcript.log"
-  exit 0
-fi
+"$WORK_DIR/scripts/scribe-check-work.sh" "$WORK_DIR"
+echo "EXIT_CODE=$?"
 ```
 
-If the narrator is done, **you should terminate** (the bash exit 0 will end your execution).
+The script will return different exit codes:
+- **Exit code 99**: Narrator is done
+- **Exit code 0 with output**: Request found
+- **Exit code 0 with no output**: No work yet
 
-### Step 3: Check for New Request
+Check the output:
 
-Use Bash to check if there's a request:
+**If you see `EXIT_CODE=99`** → The narrator has finished. **You should terminate** - don't continue to any more steps.
 
-```bash
-WORK_DIR="/tmp/historian-20251024-003129"
-
-if [ -f "$WORK_DIR/scribe/inbox/request" ]; then
-  cat "$WORK_DIR/scribe/inbox/request"
-fi
-```
-
-If there's **no request**, output a message like "No request found, will check again" and **go back to Step 2**.
-
-If there **is a request**, you'll see output like:
+**If you see a request like:**
 ```
 COMMIT_NUMBER=1
 DESCRIPTION=Add user authentication
+EXIT_CODE=0
 ```
+→ Parse it and continue to Step 3.
 
-### Step 4: Process the Request
+**If you only see `EXIT_CODE=0` with no other output** → No work yet, **go back to Step 2** and check again.
 
-When you receive a request:
+### Step 3: Process the Request
 
-1. **Parse it** from the bash output (you'll have COMMIT_NUMBER and DESCRIPTION)
+When you receive a request from Step 2:
 
-2. **Remove the request file** so you don't process it twice:
-```bash
-WORK_DIR="/tmp/historian-20251024-003129"
-rm "$WORK_DIR/scribe/inbox/request"
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SCRIBE] Processing commit $COMMIT_NUM: $DESCRIPTION" >> "$WORK_DIR/transcript.log"
-```
+1. **Parse it** - Extract COMMIT_NUMBER and DESCRIPTION from the output
 
-3. **Read the master diff** (use Read tool):
+2. **Read the master diff** (use Read tool):
    - Read `$WORK_DIR/master.diff`
    - Identify which changes belong to this commit based on the description
 
-4. **Analyze commit size**:
+3. **Analyze commit size**:
    - If the commit would include >15 files or >500 lines, use **AskUserQuestion** to ask how to split it
    - Otherwise, proceed with creating the commit
 
-5. **Create the commit**:
+4. **Create the commit**:
    - Use Write/Edit tools to apply the changes, OR
    - Use `git apply` with extracted diff hunks
    - Then commit:
 
 ```bash
+DESCRIPTION="..."  # From Step 2
+
 git commit -m "$DESCRIPTION
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
@@ -100,50 +90,43 @@ git commit -m "$DESCRIPTION
 Co-Authored-By: Claude <noreply@anthropic.com>"
 
 COMMIT_HASH=$(git rev-parse HEAD)
+FILES_CHANGED=$(git diff --name-only HEAD~1 HEAD | wc -l | tr -d ' ')
 ```
 
-6. **Write the result** for the narrator:
+5. **Write the result** using the helper script:
 
 ```bash
 WORK_DIR="/tmp/historian-20251024-003129"
+COMMIT_HASH="..."  # From previous step
+DESCRIPTION="..."  # From Step 2
+FILES_CHANGED="..."  # From previous step
 
-cat > "$WORK_DIR/scribe/outbox/result" <<EOF
-STATUS=SUCCESS
-COMMIT_HASH=$COMMIT_HASH
-MESSAGE=$DESCRIPTION
-FILES_CHANGED=5
-EOF
-
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SCRIBE] Sent result to narrator" >> "$WORK_DIR/transcript.log"
+"$WORK_DIR/scripts/scribe-write-result.sh" "$WORK_DIR" "SUCCESS" "$COMMIT_HASH" "$DESCRIPTION" "$FILES_CHANGED"
 ```
 
-### Step 5: Loop Back
+### Step 4: Loop Back
 
-After processing a request (or finding no request), **go back to Step 2** and check again.
+After processing a request (or finding no work), **go back to Step 2** and check again.
 
-**Continue this loop until the narrator writes "done" to its status file.**
+**Continue this loop until the narrator signals done** (Step 2 will exit when EXIT_CODE is 99).
 
 ## Important Notes
 
 - **Stay in the git repository** - don't cd to the work directory
-- **Use multiple tool calls** - check status, check for requests, process commits, repeat
+- **Use multiple tool calls** - check for work, process commits, write results, repeat
 - **Loop until narrator is done** - keep going back to Step 2
 - **Use AskUserQuestion for large commits** - ask user how to split
 - **Write results immediately** - narrator is waiting for them
 
 ## Example Flow
 
-1. Check narrator status → not done
-2. Check for request → none found
-3. Check narrator status → not done
-4. Check for request → found one!
-5. Process commit #1 → write result
-6. Check narrator status → not done
-7. Check for request → found one!
-8. Process commit #2 → write result
-9. Check narrator status → not done
-10. Check for request → none found
-11. Check narrator status → DONE!
-12. Exit
+1. Check for work → no request found
+2. Check for work → no request found
+3. Check for work → found request! (commit #1)
+4. Process commit #1 → write result
+5. Check for work → found request! (commit #2)
+6. Process commit #2 → write result
+7. Check for work → no request found
+8. Check for work → narrator done, exit
 
-You're running in parallel with the narrator. Keep checking and processing until it signals done.
+You're running in parallel with the narrator. Keep checking for work until the narrator signals completion.

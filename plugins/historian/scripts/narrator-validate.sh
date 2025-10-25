@@ -17,9 +17,9 @@ ORIGINAL_TREE=$(git rev-parse HEAD^{tree})
 
 if [ "$CLEAN_TREE" != "$ORIGINAL_TREE" ]; then
   echo "error" > "$WORK_DIR/narrator/status"
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] ERROR: Branch trees do not match!" >> "$WORK_DIR/transcript.log"
+  "$WORK_DIR/scripts/log.sh" "$WORK_DIR" "NARRATOR" "ERROR: Branch trees do not match!"
   git diff --stat "$CLEAN_BRANCH" "$ORIGINAL_BRANCH"
   exit 1
 fi
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Validation successful - trees match" >> "$WORK_DIR/transcript.log"
+"$WORK_DIR/scripts/log.sh" "$WORK_DIR" "NARRATOR" "Validation successful - trees match"
