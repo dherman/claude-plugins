@@ -141,15 +141,29 @@ receive_message \
 
 ### Build
 
+The build process compiles TypeScript and creates a bundled standalone file:
+
 ```bash
 npm install
-npm run build
+npm run build  # Runs tsc && npm run bundle
 ```
+
+This creates:
+- `dist/index.js` - Compiled TypeScript
+- `dist/bundle.js` - Standalone bundled file (includes all dependencies)
+
+The bundled file is what gets used by the plugin, ensuring it works without requiring `node_modules`.
 
 ### Watch Mode
 
 ```bash
-npm run watch
+npm run watch  # TypeScript watch mode
+```
+
+### Manual Bundle
+
+```bash
+npm run bundle  # Create standalone bundle
 ```
 
 ## Design Philosophy

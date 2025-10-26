@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 /**
  * Sidechat MCP Server
  *
