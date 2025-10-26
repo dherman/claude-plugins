@@ -21,7 +21,7 @@ Changeset: Add user authentication with OAuth support
 
 ## Your Task
 
-Execute these steps in sequence using multiple tool calls:
+Execute ALL steps from 1 through 7 in sequence using **multiple tool calls**. Do not stop after any single step - continue executing until you reach Step 7 and mark complete.
 
 ### Step 1: Extract Session Information
 
@@ -109,7 +109,11 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] User cancelled" >> "$WORK_DIR/tr
 exit 1
 ```
 
+**If the user approves the plan**, proceed to Step 5 to execute all the commits.
+
 ## Step 5: Execute the Commit Plan
+
+**This is a LOOP - you must process EVERY commit in your plan, not just one!**
 
 For each commit in your plan, send a request to the scribe via sidechat and wait for the result.
 
@@ -150,9 +154,18 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] ERROR: Scribe failed on commit 1
 exit 1
 ```
 
-**Repeat this process for each commit in your plan.** Send request → wait for response → check status → repeat. **Stop immediately if any commit fails.**
+**CRITICAL: Repeat this process for EVERY commit in your plan.** If you have 10 commits in your plan, you must loop through all 10. Do not stop after just one commit!
 
-Keep track of how many commits you've created so you can report the total at the end.
+For each commit:
+1. Send request via `send_message`
+2. Wait for response via `receive_message`
+3. Parse the response and check status
+4. If success, continue to next commit
+5. If error, fail fast and exit
+
+Keep track of how many commits you've created (e.g., `COMMITS_CREATED=5`) so you can report the total at the end.
+
+**After processing all commits**, proceed to Step 6.
 
 ## Step 6: Validate Results
 
@@ -201,6 +214,8 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Complete! Created $COMMITS_CREAT
 
 ## Important Notes
 
+- **EXECUTE ALL STEPS** - Do not stop after Step 4! Continue through Steps 5, 6, and 7 to completion
+- **LOOP THROUGH ALL COMMITS** - In Step 5, process every commit in your plan, not just the first one
 - **Use multiple tool calls** - Bash for git operations, Read for diffs, AskUserQuestion for approval
 - **Stay in the git repository** - don't cd to work directory
 - **Coordinate with scribe via sidechat** - use `send_message` and `receive_message` MCP tools
