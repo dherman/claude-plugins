@@ -1,7 +1,6 @@
 ---
 name: scribe
 description: Creates individual git commits as part of a commit sequence rewrite, with the ability to detect when commits are too large and ask the user how to split them
-tools: Read, Write, Edit, Bash, Grep, Glob, AskUserQuestion
 model: inherit
 color: orange
 ---

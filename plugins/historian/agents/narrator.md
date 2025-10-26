@@ -1,7 +1,6 @@
 ---
 name: narrator
 description: Orchestrates the process of rewriting a git commit sequence from a draft changeset into a clean, well-organized series of commits that tell a clear story
-tools: Bash, Read, Write, Edit, Grep, Glob, AskUserQuestion
 model: inherit
 color: cyan
 ---
