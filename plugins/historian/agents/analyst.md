@@ -116,16 +116,22 @@ Use the Read tool to read `$WORK_DIR/master.diff` and analyze the changes.
 
 Based on the diff and the changeset description, create a commit plan that:
 - Breaks changes into 5-15 logical commits
-- Follows a progression (infrastructure → core → features → polish)
+- Follows a progression (infrastructure → core → features → polish → tests/docs)
 - Each commit is independently reviewable
 - Tells a clear story
+
+**IMPORTANT**: If the master.diff contains test or documentation changes, add a final commit to the plan that includes them. For example:
+- "Add tests for user authentication"
+- "Add documentation for OAuth integration"
+- "Add tests and update documentation"
 
 Create a detailed plan as an array of commit objects:
 ```javascript
 COMMIT_PLAN = [
   {num: 1, description: "Add user authentication models"},
   {num: 2, description: "Implement OAuth token validation"},
-  // ... etc
+  // ... feature commits ...
+  {num: N, description: "Add tests and update documentation"}  // If tests/docs present
 ]
 ```
 
@@ -229,6 +235,7 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ANALYST] Analysis complete, exiting" >> "$
 - **MUST send messages in Step 6** - Use the send_message MCP tool twice (once to narrator, once to scribe). The other agents are blocked waiting for these!
 - **You only run once** - After sending messages to narrator and scribe, exit
 - **Be thorough in analysis** - The quality of your commit plan affects the entire rewrite
+- **Include tests and docs** - If master.diff contains test files or documentation, add a final commit for them
 - **Be smart about build detection** - Look at actual project files, not just guessing
 - **Ask user when uncertain** - Better to ask than to guess wrong about build commands
 - **Log everything** - Your analysis helps debug issues later
