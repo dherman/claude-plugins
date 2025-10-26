@@ -50,7 +50,7 @@ fi
 receive_message({
   session: SESSION_ID,  // "historian-20251024-003129"
   as: "scribe",
-  timeout: 1200000  // 20 minutes
+  timeout: 10800000  // 3 hours
 })
 ```
 

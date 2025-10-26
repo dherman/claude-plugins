@@ -135,7 +135,7 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Requested commit 1: Add user aut
 receive_message({
   session: SESSION_ID,
   as: "narrator",
-  timeout: 1200000  // 20 minutes
+  timeout: 10800000  // 3 hours
 })
 ```
 
