@@ -1,8 +1,14 @@
 {
   "name": "historian",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Rewrite git commit sequences to create clean, readable branches optimized for code review",
   "author": {
     "name": "David Herman"
+  },
+  "mcpServers": {
+    "sidechat": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/sidechat-mcp/dist/index.js"]
+    }
   }
 }

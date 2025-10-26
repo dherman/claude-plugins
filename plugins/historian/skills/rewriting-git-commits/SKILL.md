@@ -14,41 +14,35 @@ The changeset description: **$PROMPT**
 
 ## Your Task
 
-### Step 1: Setup Work Directory
+### Step 1: Establish Session ID
 
-Create the IPC infrastructure:
+Create a unique session ID for the agents to communicate via sidechat:
 
 ```bash
-# Generate timestamp
+# Generate timestamp-based session ID
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-WORK_DIR="/tmp/historian-$TIMESTAMP"
+SESSION_ID="historian-$TIMESTAMP"
 
-# Create directory structure
-mkdir -p "$WORK_DIR/narrator"
-mkdir -p "$WORK_DIR/scribe/inbox"
-mkdir -p "$WORK_DIR/scribe/outbox"
-mkdir -p "$WORK_DIR/scripts"
-
-# Copy helper scripts to work directory for agents to use
-SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PLUGIN_ROOT="$(dirname "$(dirname "$SKILL_DIR")")"
-cp "$PLUGIN_ROOT/scripts/"*.sh "$WORK_DIR/scripts/"
-chmod +x "$WORK_DIR/scripts/"*.sh
+# Create work directory for storing state and logs
+WORK_DIR="/tmp/$SESSION_ID"
+mkdir -p "$WORK_DIR"
 
 # Initialize state file
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 cat > "$WORK_DIR/state.json" <<EOF
 {
+  "session_id": "$SESSION_ID",
   "timestamp": "$TIMESTAMP",
   "original_branch": "$CURRENT_BRANCH",
   "work_dir": "$WORK_DIR"
 }
 EOF
 
-echo "Created work directory: $WORK_DIR"
+echo "Created session: $SESSION_ID"
+echo "Work directory: $WORK_DIR"
 ```
 
-Save the `$WORK_DIR` value for later use.
+Save both `$SESSION_ID` and `$WORK_DIR` for later use.
 
 ### Step 2: Launch Both Agents in Parallel
 
@@ -58,20 +52,22 @@ Save the `$WORK_DIR` value for later use.
 Task(
   subagent_type: "historian:narrator",
   description: "Orchestrate commit rewrite",
-  prompt: "Work directory: $WORK_DIR
+  prompt: "Session ID: $SESSION_ID
+Work directory: $WORK_DIR
 Changeset: $PROMPT"
 )
 
 Task(
   subagent_type: "historian:scribe",
   description: "Create commits",
-  prompt: "Work directory: $WORK_DIR"
+  prompt: "Session ID: $SESSION_ID
+Work directory: $WORK_DIR"
 )
 ```
 
-Both agents will run in parallel:
-- **Narrator**: Asks you to approve the commit plan, sends requests to scribe, validates results
-- **Scribe**: Polls for requests, creates commits, may ask you about splitting large commits
+Both agents will run in parallel, communicating via sidechat:
+- **Narrator**: Asks you to approve the commit plan, sends messages to scribe via sidechat, validates results
+- **Scribe**: Receives messages from narrator via sidechat, creates commits, may ask you about splitting large commits
 
 You will **block here** until both agents complete.
 
@@ -80,7 +76,8 @@ You will **block here** until both agents complete.
 After both agents return, check if the work is complete:
 
 ```bash
-WORK_DIR="/tmp/historian-{actual-timestamp}"
+SESSION_ID="historian-{actual-timestamp}"  # Use the actual session ID from Step 1
+WORK_DIR="/tmp/$SESSION_ID"
 
 if [ -f "$WORK_DIR/narrator/status" ] && grep -q "done" "$WORK_DIR/narrator/status"; then
   echo "Work complete"
@@ -95,7 +92,8 @@ If narrator is **not done**, the scribe must have run out of tokens. Restart it:
 Task(
   subagent_type: "historian:scribe",
   description: "Create commits (restarted)",
-  prompt: "Work directory: $WORK_DIR"
+  prompt: "Session ID: $SESSION_ID
+Work directory: $WORK_DIR"
 )
 ```
 
@@ -104,7 +102,7 @@ After the scribe completes, **go back to the beginning of Step 3** and check aga
 **Keep repeating Step 3** until the narrator writes "done" to its status file.
 
 The scribe will:
-- Poll for commit requests from narrator
+- Receive commit requests from narrator via sidechat
 - Create each commit
 - Possibly ask you how to split large commits (using AskUserQuestion)
 - Automatically restart if it runs out of tokens (via your loop)
@@ -114,7 +112,8 @@ The scribe will:
 After both agents complete, read the final state:
 
 ```bash
-WORK_DIR="/tmp/historian-{actual-timestamp}"
+SESSION_ID="historian-{actual-timestamp}"  # Use the actual session ID from Step 1
+WORK_DIR="/tmp/$SESSION_ID"
 cat "$WORK_DIR/state.json"
 ```
 

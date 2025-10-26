@@ -17,7 +17,7 @@ The plugin takes your current branch (with messy commits) and creates a new "cle
 
 ## Architecture
 
-The plugin uses **parallel long-running agents** with **direct user interaction** and **file-based IPC** for agent coordination. Simple and elegant!
+The plugin uses **parallel long-running agents** with **direct user interaction** and **sidechat MCP** for agent coordination. Simple and elegant!
 
 ### Components
 
@@ -35,7 +35,8 @@ A lightweight wrapper that invokes the "Rewriting Git Commits" skill.
 #### 2. Skill: Rewriting Git Commits
 
 Simple coordinator that:
-- Sets up a work directory in `/tmp/historian-{timestamp}/`
+- Establishes a unique session ID for agent communication
+- Creates a work directory in `/tmp/historian-{timestamp}/`
 - Launches narrator and scribe agents **once** in parallel
 - Waits for both to complete
 - Reports final results
@@ -50,7 +51,7 @@ Long-running orchestrator that executes from start to finish in one invocation:
 2. **Prepares** - Creates clean branch and master diff
 3. **Analyzes** - Reads diff and creates commit plan
 4. **Asks User** - Uses **AskUserQuestion** to get approval for plan
-5. **Executes** - Sends commit requests to scribe, waits for results
+5. **Executes** - Sends commit requests to scribe via sidechat, waits for responses
 6. **Validates** - Compares final branch to original
 7. **Completes** - Writes "done" status
 
@@ -58,37 +59,40 @@ Long-running orchestrator that executes from start to finish in one invocation:
 
 #### 4. Agent: `scribe` (orange)
 
-Long-running worker that polls for work in a continuous loop:
+Long-running worker that processes commits in a continuous loop:
 
-1. **Polls** - Checks every 0.2s for commit requests from narrator
-2. **Processes** - When request arrives, reads master diff and creates commit
-3. **Returns Result** - Writes result file for narrator
-4. **Repeats** - Continues polling until narrator writes "done" status
+1. **Receives** - Blocks on `receive_message` waiting for commit requests from narrator
+2. **Processes** - Reads master diff and creates commit
+3. **Responds** - Sends result back to narrator via sidechat
+4. **Repeats** - Continues until narrator writes "done" status
 
 **Location:** `agents/scribe.md`
 
-### File-Based IPC
+#### 5. MCP Server: Sidechat
 
-Agents coordinate through files in `/tmp/historian-{timestamp}/`:
+Session-based message passing system for agent coordination:
+
+- Provides `send_message` and `receive_message` tools
+- Handles message queuing and delivery (FIFO)
+- Agents communicate through named sessions
+- Messages stored in `/tmp/sidechat-{instance-id}/`
+
+**Location:** `servers/sidechat-mcp/`
+
+### Work Directory Structure
+
+The work directory in `/tmp/historian-{timestamp}/` contains:
 
 ```
 /tmp/historian-{timestamp}/
   ├── transcript.log              # Shared log
   ├── master.diff                 # All changes
   ├── state.json                  # Final results
-  ├── scripts/                    # Helper scripts (copied at runtime)
-  │   ├── log.sh
-  │   ├── narrator-setup.sh
-  │   ├── narrator-send-request.sh
-  │   ├── narrator-validate.sh
-  │   ├── scribe-receive-request.sh
-  │   └── scribe-write-result.sh
-  ├── narrator/
-  │   └── status                  # "done" | "error"
-  └── scribe/
-      ├── inbox/request           # Requests from narrator
-      └── outbox/result           # Results to narrator
+  └── narrator/
+      └── status                  # "done" | "error"
 ```
+
+Agent communication happens via sidechat MCP, not files. Messages are stored separately in `/tmp/sidechat-{instance-id}/`.
 
 ## How It Works
 
@@ -97,44 +101,45 @@ Agents coordinate through files in `/tmp/historian-{timestamp}/`:
 The skill launches both agents once and waits for completion:
 
 **Setup:**
-1. **Skill:** Creates work directory `/tmp/historian-20251024-140530/`
-2. **Skill:** Launches narrator + scribe in parallel
+1. **Skill:** Establishes session ID `historian-20251024-140530`
+2. **Skill:** Creates work directory `/tmp/historian-20251024-140530/`
+3. **Skill:** Launches narrator + scribe in parallel with session ID
 
 **Both agents start running simultaneously:**
 
 **Narrator (long-running):**
-3. Validates git repository
-4. Creates clean branch and master diff
-5. Analyzes changes and creates commit plan
-6. **Asks you directly** "Approve this commit plan?" using AskUserQuestion
-7. You respond "Proceed"
-8. Sends commit request #1 to scribe (writes `scribe/inbox/request`)
-9. Waits for scribe's result
-10. Reads result, sends request #2
-11. Repeats for all commits
-12. Validates final branch matches original
-13. Writes "done" status and exits
+4. Validates git repository
+5. Creates clean branch and master diff
+6. Analyzes changes and creates commit plan
+7. **Asks you directly** "Approve this commit plan?" using AskUserQuestion
+8. You respond "Proceed"
+9. Sends commit request #1 to scribe via sidechat (`send_message`)
+10. Waits for scribe's response (`receive_message`)
+11. Receives success response, sends request #2
+12. Repeats for all commits
+13. Validates final branch matches original
+14. Writes "done" status and exits
 
 **Scribe (long-running):**
-3. Enters polling loop
-4. Waits for request from narrator
-5. Receives request #1, processes it, writes result
-6. Waits for request #2
-7. Receives request #2, processes it, writes result
-8. Repeats until narrator writes "done"
+4. Waits for request from narrator (`receive_message` blocks)
+5. Receives request #1, processes it, sends success response via sidechat
+6. Waits for request #2 (`receive_message` blocks)
+7. Receives request #2, processes it, sends success response
+8. Repeats until narrator writes "done" status
 9. Exits
 
 **Completion:**
-14. **Skill:** Both agents finished, reads final state
-15. **Skill:** Reports results to you
+15. **Skill:** Both agents finished, reads final state
+16. **Skill:** Reports results to you
 
 ### Advantages of This Architecture
 
 1. **Simple** - Single launch, single execution
 2. **Direct User Interaction** - Agents use AskUserQuestion mid-execution
 3. **Easy to Understand** - Two agents working in parallel
-4. **Clean IPC** - Request/result files for coordination
-5. **Easy Debugging** - View transcript and IPC files
+4. **Clean Communication** - Sidechat MCP handles message passing
+5. **Easy Debugging** - View transcript log and message files
+6. **Reusable** - Sidechat MCP can be used in other plugins
 
 ### Example: Handling Large Commits
 
@@ -170,7 +175,7 @@ The plugin contains:
 ```
 historian/
 ├── .claude-plugin/
-│   └── plugin.json                    # Plugin manifest
+│   └── plugin.json                    # Plugin manifest (includes MCP server config)
 ├── commands/
 │   └── narrate.md                     # Slash command wrapper
 ├── skills/
@@ -179,13 +184,14 @@ historian/
 ├── agents/
 │   ├── narrator.md                    # Main orchestrator (cyan)
 │   └── scribe.md                      # Commit creator (orange)
-├── scripts/                            # Helper scripts for agents
-│   ├── log.sh                         # Centralized logging
-│   ├── narrator-setup.sh              # Git validation and prep
-│   ├── narrator-send-request.sh       # Send request and wait
-│   ├── narrator-validate.sh           # Branch validation
-│   ├── scribe-receive-request.sh      # Poll for next request
-│   └── scribe-write-result.sh         # Write result file
+├── servers/
+│   └── sidechat-mcp/                  # Message passing MCP server
+│       ├── src/
+│       │   └── index.ts               # TypeScript implementation
+│       ├── dist/                      # Compiled JavaScript
+│       ├── package.json
+│       ├── tsconfig.json
+│       └── README.md
 └── settings.json                       # Recommended permissions
 ```
 
