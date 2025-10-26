@@ -59,16 +59,7 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SCRIBE] Received build config: $BUILD_COMM
 
 ### Step 2: Receive Next Commit Request
 
-First, check if the narrator has written "done" to its status file:
-
-```bash
-if [ -f "$WORK_DIR/narrator/status" ] && grep -q "done" "$WORK_DIR/narrator/status"; then
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SCRIBE] Narrator finished, exiting" >> "$WORK_DIR/transcript.log"
-  exit 0
-fi
-```
-
-**If narrator is not done**, use the `receive_message` MCP tool to wait for the next request. **This will block** until the narrator sends a message:
+Use the `receive_message` MCP tool to wait for the next message from narrator. **This will block** until a message arrives:
 
 ```typescript
 receive_message({
@@ -78,7 +69,16 @@ receive_message({
 })
 ```
 
-The message will contain `{commit_num, description}`. Parse it and continue to Step 3.
+The message will be one of two types:
+
+**1. Commit request**: `{commit_num, description}` - Parse it and continue to Step 3.
+
+**2. Done signal**: `{type: "done"}` - The narrator has finished. Log and exit:
+
+```bash
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SCRIBE] Received done signal from narrator, exiting" >> "$WORK_DIR/transcript.log"
+exit 0
+```
 
 ### Step 3: Process the Request
 
@@ -207,7 +207,7 @@ send_message({
 
 After sending the result, **go back to Step 2** and wait for the next request.
 
-**Continue this loop until the narrator signals done** (Step 2 will detect the "done" status file and exit).
+**Continue this loop until the narrator sends a done message** (Step 2 will receive `{type: "done"}` and exit).
 
 ## Important Notes
 
@@ -224,12 +224,12 @@ After sending the result, **go back to Step 2** and wait for the next request.
 ## Example Flow
 
 1. Wait for analyst's build config → receive {"build_command": "cargo check"}
-2. Wait for narrator's commit request (blocks) → receive request for commit #1
+2. Wait for narrator's message (blocks) → receive commit request #1
 3. Process commit #1 → create commit
 4. Validate build (agentic loop):
    - Use Bash tool to run cargo check → passes on first try
 5. Send success response to narrator
-6. Wait for narrator's commit request (blocks) → receive request for commit #2
+6. Wait for narrator's message (blocks) → receive commit request #2
 7. Process commit #2 → create commit
 8. Validate build (agentic loop):
    - Use Bash tool to run cargo check → fails
@@ -239,7 +239,7 @@ After sending the result, **go back to Step 2** and wait for the next request.
    - Use Bash tool to amend commit
    - Use Bash tool to run cargo check again → passes
 9. Send success response to narrator
-10. Wait for narrator's commit request (blocks) → narrator status shows "done", exit
+10. Wait for narrator's message (blocks) → receive {type: "done"}, exit
 
 You're running in parallel with the analyst and narrator. Sidechat handles the message passing, so you just process requests as they arrive.
 

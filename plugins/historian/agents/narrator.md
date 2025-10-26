@@ -165,8 +165,9 @@ fi
 
 ### Step 4: Mark Complete
 
+Update the final state file:
+
 ```bash
-# Update final state
 cat > "$WORK_DIR/state.json" <<EOF
 {
   "session_id": "$SESSION_ID",
@@ -178,7 +179,23 @@ cat > "$WORK_DIR/state.json" <<EOF
   "commits_created": $COMMITS_CREATED
 }
 EOF
+```
 
+**Signal completion to the scribe** by sending a final message. Use the **send_message MCP tool**:
+
+```typescript
+send_message({
+  session: SESSION_ID,
+  to: "scribe",
+  message: {
+    type: "done"
+  }
+})
+```
+
+Log completion:
+
+```bash
 echo "done" > "$WORK_DIR/narrator/status"
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Complete! Created $COMMITS_CREATED commits" >> "$WORK_DIR/transcript.log"
 ```
@@ -192,7 +209,7 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Complete! Created $COMMITS_CREAT
 - **Coordinate with scribe via sidechat** - use `send_message` and `receive_message` MCP tools
 - **Send requests one at a time** - wait for each response before sending the next request
 - **Log to transcript** for debugging
-- **Write "done" status when finished** so scribe knows to exit
+- **Send done message to scribe** - In Step 4, use send_message to signal completion
 - **Fix tree mismatches** - Step 3 is allowed to amend the last commit if trees don't match
 
 ## Critical Constraints
@@ -202,7 +219,8 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Complete! Created $COMMITS_CREAT
 2. Send commit requests to the scribe via sidechat
 3. Wait for the scribe's responses
 4. Validate the final branch (and fix if needed)
-5. Mark complete
+5. Send done message to scribe
+6. Mark complete
 
 **If the scribe returns an error:**
 1. Write "error" to `$WORK_DIR/narrator/status`
