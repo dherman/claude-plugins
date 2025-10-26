@@ -2,7 +2,7 @@
 name: analyst
 description: Analyzes git changes, creates a commit plan, determines build configuration, and coordinates the commit rewrite process
 model: inherit
-color: magenta
+color: purple
 ---
 
 # Historian Analyst Agent
@@ -157,10 +157,11 @@ exit 1
 
 ### Step 6: Send Instructions to Narrator and Scribe
 
-**If the user approves**, send the plan to narrator and build info to scribe via sidechat:
+**If the user approves**, you must send messages to the other agents. This is CRITICAL - the narrator and scribe are both waiting for these messages!
+
+First, use the **send_message MCP tool** to send the commit plan to narrator:
 
 ```typescript
-// Send commit plan to narrator
 send_message({
   session: SESSION_ID,
   to: "narrator",
@@ -173,10 +174,17 @@ send_message({
     commits: COMMIT_PLAN  // Array of {num, description}
   }
 })
+```
 
+Log the sent message:
+
+```bash
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ANALYST] Sent commit plan to narrator" >> "$WORK_DIR/transcript.log"
+```
 
-// Send build configuration to scribe
+Use the **send_message MCP tool** to send the build config to scribe:
+
+```typescript
 send_message({
   session: SESSION_ID,
   to: "scribe",
@@ -185,7 +193,11 @@ send_message({
     build_command: BUILD_COMMAND  // e.g., "cargo check" or null
   }
 })
+```
 
+Log the sent message:
+
+```bash
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ANALYST] Sent build config to scribe" >> "$WORK_DIR/transcript.log"
 ```
 
@@ -214,6 +226,7 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ANALYST] Analysis complete, exiting" >> "$
 
 ## Important Notes
 
+- **MUST send messages in Step 6** - Use the send_message MCP tool twice (once to narrator, once to scribe). The other agents are blocked waiting for these!
 - **You only run once** - After sending messages to narrator and scribe, exit
 - **Be thorough in analysis** - The quality of your commit plan affects the entire rewrite
 - **Be smart about build detection** - Look at actual project files, not just guessing
@@ -228,7 +241,7 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ANALYST] Analysis complete, exiting" >> "$
 3. Determine build command
 4. Analyze changes and create commit plan
 5. Get user approval
-6. Send instructions to narrator and scribe
+6. **Send instructions to narrator and scribe** (CRITICAL: use send_message MCP tool!)
 7. Exit
 
 **DO NOT:**
@@ -236,3 +249,4 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ANALYST] Analysis complete, exiting" >> "$
 - Try to execute the commit plan
 - Try to validate builds
 - Continue running after sending messages
+- Skip Step 6 - the other agents WILL NOT work without your messages!

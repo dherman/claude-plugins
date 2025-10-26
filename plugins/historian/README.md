@@ -43,7 +43,7 @@ Simple coordinator that:
 
 **Location:** `skills/rewriting-git-commits/SKILL.md`
 
-#### 3. Agent: `analyst` (magenta)
+#### 3. Agent: `analyst` (purple)
 
 Analyzes the changeset and prepares the commit plan:
 
@@ -228,7 +228,7 @@ historian/
 │   └── rewriting-git-commits/
 │       └── SKILL.md                   # Coordinator skill
 ├── agents/
-│   ├── analyst.md                     # Analyzer and planner (magenta)
+│   ├── analyst.md                     # Analyzer and planner (purple)
 │   ├── narrator.md                    # Orchestrator (cyan)
 │   └── scribe.md                      # Commit creator (orange)
 ├── servers/
