@@ -6,7 +6,7 @@ allowed-tools: Task, Bash, Read
 
 # Rewriting Git Commits Skill
 
-You coordinate two parallel agents (narrator and scribe) to rewrite git commit sequences into clean, logical commits.
+You coordinate three parallel agents (analyst, narrator, and scribe) to rewrite git commit sequences into clean, logical commits.
 
 ## Input
 
@@ -44,72 +44,44 @@ echo "Work directory: $WORK_DIR"
 
 Save both `$SESSION_ID` and `$WORK_DIR` for later use.
 
-### Step 2: Launch Both Agents in Parallel
+### Step 2: Launch All Three Agents in Parallel
 
-**CRITICAL: Make TWO Task calls in a SINGLE message** to launch both agents in parallel:
+**CRITICAL: Make THREE Task calls in a SINGLE message** to launch all agents in parallel:
 
 ```
 Task(
-  subagent_type: "historian:narrator",
-  description: "Orchestrate commit rewrite",
+  subagent_type: "historian:analyst",
+  description: "Analyze changeset and create commit plan",
   prompt: "Session ID: $SESSION_ID
 Work directory: $WORK_DIR
 Changeset: $PROMPT"
 )
 
 Task(
-  subagent_type: "historian:scribe",
-  description: "Create commits",
+  subagent_type: "historian:narrator",
+  description: "Execute commit plan",
   prompt: "Session ID: $SESSION_ID
 Work directory: $WORK_DIR"
 )
-```
 
-Both agents will run in parallel, communicating via sidechat:
-- **Narrator**: Asks you to approve the commit plan, sends messages to scribe via sidechat, validates results
-- **Scribe**: Receives messages from narrator via sidechat, creates commits, may ask you about splitting large commits
-
-You will **block here** until both agents complete.
-
-### Step 3: Check if Scribe Needs Restart
-
-After both agents return, check if the work is complete:
-
-```bash
-SESSION_ID="historian-{actual-timestamp}"  # Use the actual session ID from Step 1
-WORK_DIR="/tmp/$SESSION_ID"
-
-if [ -f "$WORK_DIR/narrator/status" ] && grep -q "done" "$WORK_DIR/narrator/status"; then
-  echo "Work complete"
-else
-  echo "Narrator still working - need to restart scribe"
-fi
-```
-
-If narrator is **not done**, the scribe must have run out of tokens. Restart it:
-
-```
 Task(
   subagent_type: "historian:scribe",
-  description: "Create commits (restarted)",
+  description: "Create commits with build validation",
   prompt: "Session ID: $SESSION_ID
 Work directory: $WORK_DIR"
 )
 ```
 
-After the scribe completes, **go back to the beginning of Step 3** and check again.
+All three agents will run in parallel, communicating via sidechat:
+- **Analyst**: Validates repo, determines build command, creates commit plan, asks you to approve the plan, sends plan to narrator and build config to scribe, then exits
+- **Narrator**: Waits for commit plan from analyst, sends commit requests to scribe via sidechat, validates final tree hash (can amend last commit if needed)
+- **Scribe**: Waits for build config from analyst, receives commit requests from narrator via sidechat, creates commits, validates builds after each commit, may ask you about splitting large commits
 
-**Keep repeating Step 3** until the narrator writes "done" to its status file.
+You will **block here** until all agents complete.
 
-The scribe will:
-- Receive commit requests from narrator via sidechat
-- Create each commit
-- Possibly ask you how to split large commits (using AskUserQuestion)
-- Automatically restart if it runs out of tokens (via your loop)
+### Step 3: Report Results
 
-### Step 4: Report Results
-
-After both agents complete, read the final state:
+After all agents complete, read the final state:
 
 ```bash
 SESSION_ID="historian-{actual-timestamp}"  # Use the actual session ID from Step 1
@@ -142,48 +114,88 @@ Transcript saved to: {WORK_DIR}/transcript.log
 
 ## Architecture Notes
 
-### Sequential Agent Launches
+### Parallel Agent Coordination
 
-Agents run with different lifecycles:
-- **Narrator**: Launched once, runs to completion (validates → plans → asks user → executes → validates → done)
-- **Scribe**: Launched in a loop, may restart multiple times if it runs out of tokens before narrator is done
+All three agents launch in parallel and coordinate via sidechat (MCP-based message passing):
+
+- **Analyst**:
+  - Runs once, exits after sending messages
+  - Validates repo and creates clean branch
+  - Determines build command (cargo check, tsc --noEmit, etc.)
+  - Creates commit plan
+  - Asks user to approve plan
+  - Sends commit_plan to narrator
+  - Sends build_config to scribe
+  - Writes "done" status and exits
+
+- **Narrator**:
+  - Waits for commit_plan from analyst
+  - Executes commit loop by sending requests to scribe
+  - Waits for scribe response after each request
+  - Validates final tree hash
+  - Can amend last commit if trees don't match
+  - Writes "done" status and exits
+
+- **Scribe**:
+  - Waits for build_config from analyst
+  - Continuously receives commit requests from narrator
+  - Creates each commit
+  - Validates build after each commit (if build_command is not null)
+  - Auto-fixes build failures up to 3 times
+  - May ask user how to split large commits
+  - Exits when narrator signals "done"
 
 ### Direct User Interaction
 
 Agents use **AskUserQuestion** when needed:
-- Narrator asks user to approve commit plan
-- Scribe may ask how to split large commits
+- **Analyst** asks user to approve commit plan
+- **Scribe** may ask how to split large commits
+- **Scribe** asks for help after 3 failed build attempts
 
-### IPC Coordination
+### Sidechat Communication
 
-Agents communicate via files:
-- **Narrator → Scribe**: Writes `scribe/inbox/request` files
-- **Scribe → Narrator**: Writes `scribe/outbox/result` files
-- **Status**: Narrator writes `narrator/status` (done/error) when finished
+Agents communicate via MCP tools (send_message and receive_message):
+- **Analyst → Narrator**: commit_plan (branch, base_commit, commits array)
+- **Analyst → Scribe**: build_config (build_command or null)
+- **Narrator → Scribe**: commit requests (commit_num, description)
+- **Scribe → Narrator**: commit results (status, commit_hash, files_changed)
 
-### Restart Pattern for Scribe
+### Build Validation
 
-The scribe may terminate due to token limits before completing all work:
-1. Launch narrator first (runs once to completion)
-2. Launch scribe in a loop
-3. Scribe runs until done or out of tokens
-4. If scribe terminates but narrator not done, restart scribe
-5. Repeat until narrator writes "done" status
-6. Scribe picks up where it left off each time (stateless polling)
+The scribe validates builds after each commit:
+1. Run build command (if not null)
+2. If build fails: analyze errors, identify missing hunks from master.diff, apply fixes
+3. Amend commit with fixes
+4. Retry build (up to 3 attempts total)
+5. If still failing: ask user for help via AskUserQuestion
+6. Once build passes, send success response to narrator
+
+### Tree Validation
+
+The narrator validates the final tree hash matches:
+1. After all commits, compare tree hash of clean branch vs original branch
+2. If trees don't match: create remaining.diff, apply it, amend last commit
+3. This catches any changes the scribe missed
 
 ## Expected Behavior
 
 **Execution flow:**
-1. Setup work directory
-2. Launch narrator (blocks until complete)
-3. Launch scribe in loop:
-   - Scribe polls for requests
-   - Narrator asks you "Approve this commit plan?" → you respond
-   - Narrator sends commit requests
-   - Scribe processes commits
+1. Setup work directory with session ID
+2. Launch all three agents in parallel (single message with 3 Task calls)
+3. Analyst runs:
+   - Creates clean branch and master.diff
+   - Determines build command
+   - Creates commit plan
+   - Asks you "Approve this plan?" → you respond
+   - Sends messages to narrator and scribe
+   - Exits
+4. Narrator and scribe coordinate:
+   - Narrator sends commit #1 request
+   - Scribe creates commit #1, validates build, responds
+   - Narrator sends commit #2 request
+   - Scribe creates commit #2, validates build (may fail, auto-fix, retry), responds
    - Scribe may ask you "How to split this commit?" → you respond
-   - If scribe runs out of tokens, it terminates
-   - Loop restarts scribe if narrator not done yet
-4. Narrator finishes and writes "done"
-5. Scribe exits on next check
-6. You report results
+   - Repeat for all commits
+5. Narrator validates final tree, fixes if needed, writes "done"
+6. Scribe detects "done" status and exits
+7. You report results
