@@ -156,67 +156,69 @@ log({
 
 6. **Continue to Step 4 for build validation** before sending the result.
 
-### Step 4: Build Validation Loop
+### Step 4: Build Validation
 
 **If the build command is not null**, validate that the commit builds successfully.
 
-This is an **agentic loop** - perform the following validation pass **up to 3 times** (using multiple tool calls for each pass):
+You will try **up to 3 times** to make the build pass. Use multiple tool calls for each attempt.
 
-#### Validation Pass (repeat up to 3 times)
+**For each attempt (1, 2, or 3):**
 
-Log the current attempt number:
+1. Log the attempt:
+   ```typescript
+   log({
+     session: SESSION_ID,
+     agent: "SCRIBE",
+     message: "Running build validation (attempt N)"
+   })
+   ```
 
-```typescript
-log({
-  session: SESSION_ID,
-  agent: "SCRIBE",
-  message: "Running build validation (attempt N)"
-})
-```
+2. Run the build:
+   ```bash
+   eval "$BUILD_COMMAND" 2>&1 | tee "$WORK_DIR/build-output.log"
+   ```
 
-Run the build command using the Bash tool:
+3. Check the result:
 
-```bash
-eval "$BUILD_COMMAND" 2>&1 | tee "$WORK_DIR/build-output.log"
-```
+   **a) If the build PASSES:**
+   ```typescript
+   log({
+     session: SESSION_ID,
+     agent: "SCRIBE",
+     message: "Build passed on attempt N"
+   })
+   ```
+   **EXIT the build validation loop and proceed immediately to Step 5.** Do not make any more build attempts.
 
-**If the build passes**, log success and proceed to Step 5:
+   **b) If the build FAILS and this is attempt 1 or 2:**
+   - Log: `log({ session: SESSION_ID, agent: "SCRIBE", message: "Build failed on attempt N, analyzing errors" })`
+   - Use **Read tool** to examine `$WORK_DIR/build-output.log` for errors
+   - Use **Read tool** to examine `$WORK_DIR/master.diff` for potential fixes
+   - Identify missing changes (imports, types, fields, etc.)
+   - Apply fixes using **Write/Edit** tools
+   - Amend: `git add -A && git commit --amend --no-edit`
+   - Log: `log({ session: SESSION_ID, agent: "SCRIBE", message: "Applied fixes, retrying build (attempt N+1)" })`
+   - **Loop back to the top of this step** for the next attempt
 
-```typescript
-log({
-  session: SESSION_ID,
-  agent: "SCRIBE",
-  message: "Build passed on attempt N"
-})
-```
+   **c) If the build FAILS on attempt 3:**
+   - Use **AskUserQuestion tool**:
+     ```
+     The build is failing after 3 attempts to fix it automatically.
 
-**If the build fails** and this is not the 3rd attempt:
-1. Log the failure using the **log tool**: `log({ session: SESSION_ID, agent: "SCRIBE", message: "Build failed on attempt N, analyzing errors" })`
-2. Use **Read tool** to examine `$WORK_DIR/build-output.log` for error messages
-3. Use **Read tool** to examine `$WORK_DIR/master.diff` for potential fixes
-4. Identify missing changes (imports, type definitions, struct fields, etc.)
-5. Apply fixes using **Write/Edit** tools
-6. Amend the commit: `git add -A && git commit --amend --no-edit`
-7. Log the fix using the **log tool**: `log({ session: SESSION_ID, agent: "SCRIBE", message: "Applied fixes, retrying build (attempt N+1)" })`
-8. Go back to the top of this subsection for the next attempt
+     Build command: [the build command]
 
-**If the build fails on the 3rd attempt**, use **AskUserQuestion tool**:
+     Latest error output:
+     [paste relevant error messages from build-output.log]
 
-```
-The build is failing after 3 attempts to fix it automatically.
+     I've tried applying these changes:
+     [describe what you applied in each attempt]
 
-Build command: [the build command]
-
-Latest error output:
-[paste relevant error messages from build-output.log]
-
-I've tried applying these changes:
-[describe what you applied in each attempt]
-
-What should I do to make the build pass?
-```
-
-After the user responds, apply their suggestions, amend the commit, verify the build passes, then proceed to Step 5.
+     What should I do to make the build pass?
+     ```
+   - Apply the user's suggestions
+   - Amend the commit
+   - Verify the build passes
+   - **Then proceed to Step 5**
 
 ### Step 5: Send Result and Loop Back
 
@@ -250,7 +252,13 @@ send_message({
 
 After sending the result, **go back to Step 2** and wait for the next request.
 
-**Continue this loop until the narrator sends a done message** (Step 2 will receive `{type: "done"}` and exit).
+**CRITICAL: This is the OUTER LOOP. You must:**
+- **GO BACK TO STEP 2** (not Step 3, not Step 4 - Step 2!)
+- Wait for the narrator's next commit request
+- Process each commit one by one
+- **Continue this loop until the narrator sends a done message** (Step 2 will receive `{type: "done"}` and exit)
+
+Do not terminate early. Keep processing commits until you receive the done signal.
 
 ## Important Notes
 
