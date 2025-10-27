@@ -1,0 +1,19 @@
+{
+  "name": "log-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for structured logging with optional detailed messages",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc && npm run bundle",
+    "bundle": "esbuild dist/index.js --bundle --platform=node --format=esm --outfile=dist/bundle.js --banner:js='#!/usr/bin/env node' --external:node:*"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "esbuild": "^0.24.2",
+    "typescript": "^5.7.2"
+  }
+}

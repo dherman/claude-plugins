@@ -40,14 +40,37 @@ Validate the git repository and prepare materials:
 # Create work directory subdirectories
 mkdir -p "$WORK_DIR/narrator"
 mkdir -p "$WORK_DIR/analyst"
+```
 
-# Log start
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ANALYST] Starting analysis" >> "$WORK_DIR/transcript.log"
+Log that you're starting:
 
+```typescript
+log({
+  session: SESSION_ID,
+  agent: "ANALYST",
+  message: "Starting analysis"
+})
+```
+
+Validate the repository:
+
+```bash
 # Validate working tree is clean
 if ! git diff-index --quiet HEAD --; then
   echo "error" > "$WORK_DIR/analyst/status"
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ANALYST] ERROR: Working tree not clean" >> "$WORK_DIR/transcript.log"
+```
+
+Log the error:
+
+```typescript
+log({
+  session: SESSION_ID,
+  agent: "ANALYST",
+  message: "ERROR: Working tree not clean"
+})
+```
+
+```bash
   exit 1
 fi
 
@@ -55,7 +78,19 @@ fi
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 if [ "$BRANCH" = "HEAD" ]; then
   echo "error" > "$WORK_DIR/analyst/status"
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ANALYST] ERROR: Detached HEAD" >> "$WORK_DIR/transcript.log"
+```
+
+Log the error:
+
+```typescript
+log({
+  session: SESSION_ID,
+  agent: "ANALYST",
+  message: "ERROR: Detached HEAD"
+})
+```
+
+```bash
   exit 1
 fi
 
@@ -69,8 +104,16 @@ git diff ${BASE_COMMIT}..HEAD > "$WORK_DIR/master.diff"
 
 # Create clean branch
 git checkout -b "$CLEAN_BRANCH" "$BASE_COMMIT"
+```
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ANALYST] Created clean branch: $CLEAN_BRANCH" >> "$WORK_DIR/transcript.log"
+Log the branch creation:
+
+```typescript
+log({
+  session: SESSION_ID,
+  agent: "ANALYST",
+  message: "Created clean branch: $CLEAN_BRANCH"
+})
 ```
 
 ### Step 3: Determine Build Command
@@ -157,7 +200,19 @@ Wait for the user's response. If they say no or cancel, clean up and exit:
 git checkout "$BRANCH"
 git branch -D "$CLEAN_BRANCH"
 echo "error" > "$WORK_DIR/analyst/status"
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ANALYST] User cancelled" >> "$WORK_DIR/transcript.log"
+```
+
+Log the cancellation:
+
+```typescript
+log({
+  session: SESSION_ID,
+  agent: "ANALYST",
+  message: "User cancelled"
+})
+```
+
+```bash
 exit 1
 ```
 
@@ -184,8 +239,12 @@ send_message({
 
 Log the sent message:
 
-```bash
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ANALYST] Sent commit plan to narrator" >> "$WORK_DIR/transcript.log"
+```typescript
+log({
+  session: SESSION_ID,
+  agent: "ANALYST",
+  message: "Sent commit plan to narrator"
+})
 ```
 
 Use the **send_message MCP tool** to send the build config to scribe:
@@ -203,8 +262,12 @@ send_message({
 
 Log the sent message:
 
-```bash
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ANALYST] Sent build config to scribe" >> "$WORK_DIR/transcript.log"
+```typescript
+log({
+  session: SESSION_ID,
+  agent: "ANALYST",
+  message: "Sent build config to scribe"
+})
 ```
 
 ### Step 7: Mark Complete and Exit
@@ -225,7 +288,16 @@ cat > "$WORK_DIR/state.json" <<EOF
 EOF
 
 echo "done" > "$WORK_DIR/analyst/status"
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ANALYST] Analysis complete, exiting" >> "$WORK_DIR/transcript.log"
+```
+
+Log completion:
+
+```typescript
+log({
+  session: SESSION_ID,
+  agent: "ANALYST",
+  message: "Analysis complete, exiting"
+})
 ```
 
 **Your work is done.** The narrator and scribe will take over from here.

@@ -28,8 +28,16 @@ Extract the session ID and work directory from your input:
 ```bash
 SESSION_ID="historian-20251024-003129"  # From your input
 WORK_DIR="/tmp/historian-20251024-003129"  # From your input
+```
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Waiting for commit plan from analyst" >> "$WORK_DIR/transcript.log"
+Log that you're waiting:
+
+```typescript
+log({
+  session: SESSION_ID,
+  agent: "NARRATOR",
+  message: "Waiting for commit plan from analyst"
+})
 ```
 
 Wait for the commit plan from the analyst agent:
@@ -66,8 +74,16 @@ BASE_COMMIT="..."  # from message
 TIMESTAMP="..."  # from message
 COMMITS=(...)  # array from message
 TOTAL_COMMITS=${#COMMITS[@]}
+```
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Received commit plan: $TOTAL_COMMITS commits" >> "$WORK_DIR/transcript.log"
+Log that you received the plan:
+
+```typescript
+log({
+  session: SESSION_ID,
+  agent: "NARRATOR",
+  message: "Received commit plan: $TOTAL_COMMITS commits"
+})
 ```
 
 ### Step 2: Execute the Commit Plan
@@ -92,7 +108,11 @@ send_message({
 })
 
 // Log that we sent the request
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Requested commit 1: Add user authentication models" >> "$WORK_DIR/transcript.log"
+log({
+  session: SESSION_ID,
+  agent: "NARRATOR",
+  message: "Requested commit 1: Add user authentication models"
+})
 
 // Wait for scribe's response
 receive_message({
@@ -109,7 +129,19 @@ Parse the response JSON and check the status field. If `status === "success"`, l
 ```bash
 # Example of handling error response
 echo "error" > "$WORK_DIR/narrator/status"
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] ERROR: Scribe failed on commit 1" >> "$WORK_DIR/transcript.log"
+```
+
+Log the error:
+
+```typescript
+log({
+  session: SESSION_ID,
+  agent: "NARRATOR",
+  message: "ERROR: Scribe failed on commit 1"
+})
+```
+
+```bash
 exit 1
 ```
 
@@ -139,7 +171,11 @@ git checkout "$BRANCH"
 ORIGINAL_TREE=$(git rev-parse HEAD^{tree})
 
 if [ "$CLEAN_TREE" != "$ORIGINAL_TREE" ]; then
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Trees don't match, applying remaining changes" >> "$WORK_DIR/transcript.log"
+  log({
+    session: SESSION_ID,
+    agent: "NARRATOR",
+    message: "Trees don't match, applying remaining changes"
+  })
 
   # Switch back to clean branch
   git checkout "$CLEAN_BRANCH"
@@ -147,9 +183,14 @@ if [ "$CLEAN_TREE" != "$ORIGINAL_TREE" ]; then
   # Get the diff of what's missing
   git diff HEAD "$BRANCH" > "$WORK_DIR/remaining.diff"
 
-  # Log what we're adding
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Remaining diff:" >> "$WORK_DIR/transcript.log"
-  cat "$WORK_DIR/remaining.diff" >> "$WORK_DIR/transcript.log"
+  # Log what we're adding (with details)
+  REMAINING_DIFF=$(cat "$WORK_DIR/remaining.diff")
+  log({
+    session: SESSION_ID,
+    agent: "NARRATOR",
+    message: "Remaining diff",
+    details: "$REMAINING_DIFF"
+  })
 
   # Apply the remaining changes
   git apply "$WORK_DIR/remaining.diff"
@@ -157,9 +198,17 @@ if [ "$CLEAN_TREE" != "$ORIGINAL_TREE" ]; then
   # Amend the last commit with the missing changes
   git commit --amend --no-edit
 
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Amended last commit with remaining changes" >> "$WORK_DIR/transcript.log"
+  log({
+    session: SESSION_ID,
+    agent: "NARRATOR",
+    message: "Amended last commit with remaining changes"
+  })
 else
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Validation successful - trees match" >> "$WORK_DIR/transcript.log"
+  log({
+    session: SESSION_ID,
+    agent: "NARRATOR",
+    message: "Validation successful - trees match"
+  })
 fi
 ```
 
@@ -193,11 +242,18 @@ send_message({
 })
 ```
 
-Log completion:
-
 ```bash
 echo "done" > "$WORK_DIR/narrator/status"
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [NARRATOR] Complete! Created $COMMITS_CREATED commits" >> "$WORK_DIR/transcript.log"
+```
+
+Log completion:
+
+```typescript
+log({
+  session: SESSION_ID,
+  agent: "NARRATOR",
+  message: "Complete! Created $COMMITS_CREATED commits"
+})
 ```
 
 ## Important Notes

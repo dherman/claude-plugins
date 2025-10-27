@@ -28,8 +28,16 @@ Extract session information and wait for the analyst to send build configuration
 ```bash
 SESSION_ID="historian-20251024-003129"  # From your input
 WORK_DIR="/tmp/historian-20251024-003129"  # From your input
+```
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SCRIBE] Waiting for build config from analyst" >> "$WORK_DIR/transcript.log"
+Log that you're waiting:
+
+```typescript
+log({
+  session: SESSION_ID,
+  agent: "SCRIBE",
+  message: "Waiting for build config from analyst"
+})
 ```
 
 Use the `receive_message` MCP tool to wait for the analyst's build configuration:
@@ -53,8 +61,16 @@ This will return a message like:
 Parse and store the build command:
 ```bash
 BUILD_COMMAND="cargo check"  # or null, from analyst message
+```
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SCRIBE] Received build config: $BUILD_COMMAND" >> "$WORK_DIR/transcript.log"
+Log receipt:
+
+```typescript
+log({
+  session: SESSION_ID,
+  agent: "SCRIBE",
+  message: "Received build config: $BUILD_COMMAND"
+})
 ```
 
 ### Step 2: Receive Next Commit Request
@@ -75,8 +91,15 @@ The message will be one of two types:
 
 **2. Done signal**: `{type: "done"}` - The narrator has finished. Log and exit:
 
+```typescript
+log({
+  session: SESSION_ID,
+  agent: "SCRIBE",
+  message: "Received done signal from narrator, exiting"
+})
+```
+
 ```bash
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SCRIBE] Received done signal from narrator, exiting" >> "$WORK_DIR/transcript.log"
 exit 0
 ```
 
@@ -87,8 +110,12 @@ When you receive a request from Step 2:
 1. **Parse it** - Extract `commit_num` and `description` from the message
 
 2. **Log the request**:
-```bash
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SCRIBE] Processing request for commit $COMMIT_NUM" >> "$WORK_DIR/transcript.log"
+```typescript
+log({
+  session: SESSION_ID,
+  agent: "SCRIBE",
+  message: "Processing request for commit $COMMIT_NUM"
+})
 ```
 
 3. **Read the master diff** (use Read tool):
@@ -115,8 +142,16 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 COMMIT_HASH=$(git rev-parse HEAD)
 FILES_CHANGED=$(git diff --name-only HEAD~1 HEAD | wc -l | tr -d ' ')
+```
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SCRIBE] Created commit $COMMIT_HASH" >> "$WORK_DIR/transcript.log"
+Log the commit creation:
+
+```typescript
+log({
+  session: SESSION_ID,
+  agent: "SCRIBE",
+  message: "Created commit $COMMIT_HASH"
+})
 ```
 
 6. **Continue to Step 4 for build validation** before sending the result.
@@ -131,8 +166,12 @@ This is an **agentic loop** - perform the following validation pass **up to 3 ti
 
 Log the current attempt number:
 
-```bash
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SCRIBE] Running build validation (attempt N)" >> "$WORK_DIR/transcript.log"
+```typescript
+log({
+  session: SESSION_ID,
+  agent: "SCRIBE",
+  message: "Running build validation (attempt N)"
+})
 ```
 
 Run the build command using the Bash tool:
@@ -143,18 +182,22 @@ eval "$BUILD_COMMAND" 2>&1 | tee "$WORK_DIR/build-output.log"
 
 **If the build passes**, log success and proceed to Step 5:
 
-```bash
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [SCRIBE] Build passed on attempt N" >> "$WORK_DIR/transcript.log"
+```typescript
+log({
+  session: SESSION_ID,
+  agent: "SCRIBE",
+  message: "Build passed on attempt N"
+})
 ```
 
 **If the build fails** and this is not the 3rd attempt:
-1. Log the failure: `echo "[...] Build failed on attempt N, analyzing errors" >> "$WORK_DIR/transcript.log"`
+1. Log the failure using the **log tool**: `log({ session: SESSION_ID, agent: "SCRIBE", message: "Build failed on attempt N, analyzing errors" })`
 2. Use **Read tool** to examine `$WORK_DIR/build-output.log` for error messages
 3. Use **Read tool** to examine `$WORK_DIR/master.diff` for potential fixes
 4. Identify missing changes (imports, type definitions, struct fields, etc.)
 5. Apply fixes using **Write/Edit** tools
 6. Amend the commit: `git add -A && git commit --amend --no-edit`
-7. Log the fix: `echo "[...] Applied fixes, retrying build (attempt N+1)" >> "$WORK_DIR/transcript.log"`
+7. Log the fix using the **log tool**: `log({ session: SESSION_ID, agent: "SCRIBE", message: "Applied fixes, retrying build (attempt N+1)" })`
 8. Go back to the top of this subsection for the next attempt
 
 **If the build fails on the 3rd attempt**, use **AskUserQuestion tool**:
