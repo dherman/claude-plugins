@@ -1,6 +1,6 @@
 {
   "name": "historian",
-  "version": "0.6.11",
+  "version": "0.6.12",
   "description": "Rewrite git commit sequences to create clean, readable branches optimized for code review",
   "author": {
     "name": "David Herman"
